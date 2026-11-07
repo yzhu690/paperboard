@@ -26,9 +26,9 @@
    - Source 选 **Deploy from a branch**
    - Branch 选 **main**，目录选 **/(root)**
    - 点 **Save**
-4. 等 1～2 分钟，访问：
+4. 等 1～2 分钟，访问（已部署好可直接用）：
    ```
-   https://<你的GitHub用户名>.github.io/paperboard/
+   https://yzhu690.github.io/paperboard/
    ```
    把这个网址收藏，手机、平板、公司电脑都能打开同一个应用。
 
