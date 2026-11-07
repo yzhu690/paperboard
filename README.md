@@ -1,0 +1,105 @@
+# 纸面 Paperboard
+
+一个单文件的无限白板 —— 便签、形状、图片、网页链接卡、万能曲线连线、容器与聚焦演示、表情、思维导图快捷键，支持导出 SVG / PNG / 文本。
+
+整个应用就是根目录的 **`index.html`** 一个文件，没有构建步骤、没有依赖安装、不需要 Node，放到任何静态托管上都能跑。
+
+---
+
+## 一、最快用起来（本地）
+
+1. 下载本仓库（页面右上角 **Code → Download ZIP**），解压。
+2. 用 **Chrome 或 Edge** 打开 `index.html`（双击即可）。
+3. 直接开始画，不用登录。
+
+> 首次进入是空的欢迎画板。数据存在浏览器的 IndexedDB 里，关掉再开还在，但**清浏览器数据会丢**，所以下面这套备份流程建议第一次就配好。
+
+---
+
+## 二、托管到 GitHub Pages（任意设备可用网址打开）
+
+全程在网页上点，不用命令行：
+
+1. 打开 github.com → 右上 **+ → New repository**，名字填 `paperboard`，选 **Public**，Create。
+2. 进入仓库 → **Add file → Upload files**，把 `index.html` 和 `README.md` 拖进去 → **Commit changes**。
+3. 仓库 **Settings → Pages**：
+   - Source 选 **Deploy from a branch**
+   - Branch 选 **main**，目录选 **/(root)**
+   - 点 **Save**
+4. 等 1～2 分钟，访问：
+   ```
+   https://<你的GitHub用户名>.github.io/paperboard/
+   ```
+   把这个网址收藏，手机、平板、公司电脑都能打开同一个应用。
+
+> GitHub Pages 只托管这个网页，**你的画板数据不上传 GitHub**，仍然存在各自设备的浏览器里 + 百度网盘同步文件里。
+
+---
+
+## 三、多设备同步：用百度网盘「同步空间」
+
+原理：应用把全部画板写成一个 JSON 文件，直接落到你本机的网盘同步文件夹；百度网盘客户端负责上传。不申请任何开放平台接口，不要密钥，不花钱。
+
+### 每台设备要做的
+
+1. 装 **百度网盘客户端**（桌面版）。
+2. 客户端 → **设置 → 同步空间** → 开启，记下它在本机对应的文件夹路径（例如 `~/BaiduNetdiskWorkspace`）。
+3. 打开白板 → 右上角 **备份设置** → **选择同步文件夹** → 选中上面那个文件夹 → 允许读写。
+4. 点 **写一次** 验证，看到「已备份 12:34」就通了。之后**每 5 分钟自动写一次**，右上角徽标会刷新时间。
+
+### 换设备的流程
+
+1. 新设备装好百度网盘客户端并开启同步空间，等它把 `纸面备份.json` 下载到本地。
+2. 打开白板 → 备份设置 → 选择同一个同步文件夹 → 点 **从备份文件夹恢复**。
+3. 提示「已恢复」即接管全部画板（含容器、连线、图片）。
+
+### 手机 / 平板怎么办
+
+手机浏览器不能直接写文件夹（沙箱限制）。两条替代路径：
+
+- 桌面导出 `.json` → 丢进微信/网盘 → 手机端在应用里「导入 .json」查看；
+- 或者直接把「纸面备份.json」放到手机网盘里，需要时用「导入 .json」选它。
+
+---
+
+## 四、可选：Supabase 实时多端同步
+
+默认关闭，不登录也能用。想要「A 设备改完，B 设备自动出现」再打开：
+
+1. supabase.com 建免费项目，SQL Editor 里跑：
+
+```sql
+create table if not exists pb_docs (
+  user_id uuid primary key references auth.users on delete cascade,
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table pb_docs enable row level security;
+create policy "own docs" on pb_docs
+  for all using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+2. 白板面板里回填 Project URL 与 anon key。
+3. 点「登录云端账号」，用邮箱或手机验证码验证一次；之后这台设备自动免登录。
+4. 本地改动 4 秒内上传，其他设备 25 秒内拉取。
+
+> 手机短信需要先在 Supabase → Authentication → Providers → Phone 里接 Twilio 等短信商；国内送达率不保证，推荐先用邮箱。
+
+---
+
+## 五、常用操作
+
+| 操作 | 说明 |
+| --- | --- |
+| 右键按住 → 悬浮到某个命令 → 松开 | 环形工具栏，松手即执行 |
+| 按住右键划过两张卡片 | 自动连一条曲线箭头（两端可改形态） |
+| 拖连线中间的控制点 | 调曲度 |
+| `Tab` / `Enter` | 生成子节点 / 同级节点（思维导图） |
+| `1` `2` `3` `4` | 插入 3:4 / 9:16 / 16:9 / 1:1 容器 |
+| 选中容器 → 标题旁下拉 | 设定聚焦演示顺序 |
+| 右下角眼睛图标 | 进入 Walkthrough 聚焦演示 |
+| 选中元素拖角点 + `Shift` | 等比缩放 |
+| 面板「导出 SVG / PNG / 文本」 | 导出单个画板 |
+
+单文件应用，可自由 Fork、二次修改。
