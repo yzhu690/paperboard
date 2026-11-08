@@ -578,6 +578,37 @@ html,body{max-width:100%;overflow-x:hidden}
 .zoom-val:hover{background:#2a333d}
 
 /* 选中元素旁的「下一级 / 同级」浮标 */
+#expPop{
+  position:fixed;
+  display:none;
+  right:18px;
+  bottom:62px;
+  padding:8px;
+  border-radius:12px;
+  background:#151a21;
+  box-shadow:0 10px 28px rgba(21,26,33,.24);
+  z-index:19;
+  min-width:206px;
+}
+#expPop.on{display:block}
+.exp-row{display:flex;gap:6px;margin-bottom:6px}
+.exp-row:last-child{margin-bottom:0}
+#expPop button{
+  flex:1;
+  height:32px;
+  border:none;
+  border-radius:8px;
+  background:#222a33;
+  color:#e8ebe6;
+  font-family:var(--font);
+  font-size:12px;
+  cursor:pointer;
+}
+#expPop button:hover{background:#2e3843}
+#expPop .exp-scope button{height:30px;font-size:11.5px;color:#c3ccd2}
+#expPop .exp-scope button.is-on{background:var(--accent);color:#151a21;font-weight:600}
+#expPop .exp-fmt{font-weight:500}
+
 #nodeOps{
   position:fixed;
   display:none;
@@ -1418,10 +1449,10 @@ details.man-adv .inner{padding:0 12px 12px}
           </select>
           <button class="btn-snap" id="btnSnapRestore" type="button" data-zh="恢复" data-en="Restore">恢复</button>
         </div>
-        <button class="btn-check-update" id="btnCheckUpdate" type="button" data-zh="检查更新" data-en="Check for updates">检查更新</button>
       </div>
 
       <div class="drawer-note">数据先存在本机浏览器里，再写进你指定的网盘同步文件夹。</div>
+      <button class="btn-check-update" id="btnCheckUpdate" type="button" data-zh="检查更新" data-en="Check for updates">检查更新</button>
     </div>
   </aside>
 
@@ -1480,6 +1511,9 @@ details.man-adv .inner{padding:0 12px 12px}
         </svg>
       </button>
       <div class="tb-sep" style="background:#38424d"></div>
+      <button class="zoom-btn" id="expBtn" type="button" title="导出" aria-label="导出">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11"></path><path d="M8 11l4 4 4-4"></path><path d="M5 19h14"></path></svg>
+      </button>
       <button class="zoom-btn" id="keysBtn" type="button" title="快捷键" aria-label="快捷键">?</button>
     </div>
 
@@ -1501,6 +1535,21 @@ details.man-adv .inner{padding:0 12px 12px}
 </button>
 
 <div id="hint">空格拖动画布　·　Ctrl 滚轮缩放　·　双击画面写字</div>
+
+    <div id="expPop">
+      <div class="exp-row exp-scope">
+        <button type="button" data-scope="all" class="is-on" data-zh="整个画板" data-en="Whole board">整个画板</button>
+        <button type="button" data-scope="sel" id="expScopeSel" data-zh="仅选中" data-en="Selection only">仅选中</button>
+      </div>
+      <div class="exp-row">
+        <button type="button" class="exp-fmt" id="btnExportPng" data-zh="PNG 图片" data-en="PNG image">PNG 图片</button>
+        <button type="button" class="exp-fmt" id="btnExportSvg" data-zh="SVG（文字可改）" data-en="SVG (editable text)">SVG（文字可改）</button>
+      </div>
+      <div class="exp-row">
+        <button type="button" class="exp-fmt" id="btnExportTxt" data-zh="文本 .txt" data-en="Text .txt">文本 .txt</button>
+        <button type="button" class="exp-fmt" id="btnExportJson" data-zh="备份 .json" data-en="Backup .json">备份 .json</button>
+      </div>
+    </div>
 
     <div id="nodeOps"></div>
 
@@ -1675,11 +1724,7 @@ details.man-adv .inner{padding:0 12px 12px}
     <text x="222" y="86" data-zh="发给别人" data-en="Send it">发给别人</text>
   </g>
 </svg>
-<div class="man-step"><span class="n">1</span><div class="t" data-zh="<b>SVG</b>：文字能选中、能继续改，适合给同事接手编辑。" data-en="<b>SVG</b>: text stays selectable and editable — good for handing to a colleague."><b>SVG</b>：文字能选中、能继续改，适合给同事接手编辑。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="<b>PNG</b>：一张 2 倍清晰的图片，适合发微信、贴进 PPT。" data-en="<b>PNG</b>: a crisp 2× image, good for chat apps and slides."><b>PNG</b>：一张 2 倍清晰的图片，适合发微信、贴进 PPT。</div></div><div class="man-step"><span class="n">3</span><div class="t" data-zh="<b>文本 .txt</b>：把便签和卡片上的字按顺序列出来，适合存档、搜索。" data-en="<b>.txt</b>: lists every note and card text in order — good for archiving and searching."><b>文本 .txt</b>：把便签和卡片上的字按顺序列出来，适合存档、搜索。</div></div>      <div class="man-actions">
-        <button class="btn ghost" id="btnExportSvg" type="button" data-zh="导出 SVG（可编辑文字）" data-en="Export SVG (editable text)">导出 SVG（可编辑文字）</button>
-        <button class="btn ghost" id="btnExportPng" type="button" data-zh="导出 PNG 图片" data-en="Export PNG image">导出 PNG 图片</button>
-        <button class="btn ghost" id="btnExportTxt" type="button" data-zh="导出 文本 .txt" data-en="Export text .txt">导出 文本 .txt</button>
-      </div>
+<div class="man-step"><span class="n">1</span><div class="t" data-zh="<b>SVG</b>：文字能选中、能继续改，适合给同事接手编辑。" data-en="<b>SVG</b>: text stays selectable and editable — good for handing to a colleague."><b>SVG</b>：文字能选中、能继续改，适合给同事接手编辑。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="<b>PNG</b>：一张 2 倍清晰的图片，适合发微信、贴进 PPT。" data-en="<b>PNG</b>: a crisp 2× image, good for chat apps and slides."><b>PNG</b>：一张 2 倍清晰的图片，适合发微信、贴进 PPT。</div></div><div class="man-step"><span class="n">3</span><div class="t" data-zh="<b>文本 .txt</b>：把便签和卡片上的字按顺序列出来，适合存档、搜索。" data-en="<b>.txt</b>: lists every note and card text in order — good for archiving and searching."><b>文本 .txt</b>：把便签和卡片上的字按顺序列出来，适合存档、搜索。</div></div>      <div class="man-tip" data-zh="导出按钮就在右下角缩放条左侧的「下载」图标，随时可点，也可以只导出选中的那部分。" data-en="The export button is the download icon just left of the bottom-right zoom bar — always one tap away, and it can export only your selection.">导出按钮就在右下角缩放条左侧的「下载」图标，随时可点，也可以只导出选中的那部分。</div>
     </div>
     <details class="man-adv">
       <summary data-zh="进阶：聚焦演示（Walkthrough）" data-en="Advanced: focus walkthrough">进阶：聚焦演示（Walkthrough）</summary>
@@ -2096,6 +2141,47 @@ function toggleGuides(){
   paintGuideBtn(); requestRender();
   toast(GUIDES_ON ? "对齐参考线已开启" : "对齐参考线已关闭，吸附也一并关掉");
 }
+
+function closeExpPop(){
+  var pop = $("#expPop");
+  if(pop) pop.classList.remove("on");
+}
+function paintExpScope(){
+  var pop = $("#expPop");
+  if(!pop) return;
+  pop.querySelectorAll(".exp-scope button").forEach(function(b){
+    b.classList.toggle("is-on", b.getAttribute("data-scope") === EXP_SCOPE);
+  });
+  var selB = pop.querySelector('[data-scope="sel"]');
+  var empty = !state.selection.length;
+  if(selB){
+    selB.disabled = empty;
+    selB.style.opacity = empty ? ".45" : "";
+  }
+}
+function toggleExpPop(){
+  var pop = $("#expPop");
+  if(!pop) return;
+  paintExpScope();
+  pop.classList.toggle("on");
+}
+setTimeout(function(){
+  var eb = $("#expBtn");
+  if(eb) eb.addEventListener("click", function(e){ e.stopPropagation(); toggleExpPop(); });
+  var pop = $("#expPop");
+  if(pop){
+    pop.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
+    pop.addEventListener("click", function(e){
+      var sc = e.target.closest("[data-scope]");
+      if(!sc) return;
+      EXP_SCOPE = sc.getAttribute("data-scope");
+      paintExpScope();
+    });
+  }
+  document.addEventListener("click", function(e){
+    if(pop && pop.classList.contains("on") && !e.target.closest("#expPop") && !e.target.closest("#expBtn")) closeExpPop();
+  });
+}, 0);
 
 function paintSoundBtn(){
   var b = document.getElementById("soundBtn");
@@ -2703,12 +2789,24 @@ function imgFor(src){
   return imgCache.get(src) || null;
 }
 
+/* 缩得很小时阴影跟着变淡变小，避免叠成一片灰黑 */
+function shadowFor(baseAlpha, baseBlur, baseOff){
+  var z = cam.zoom;
+  var f = Math.min(1, Math.max(0.32, z));
+  return {
+    color: "rgba(21,26,33," + (baseAlpha * (0.4 + 0.6 * f)).toFixed(3) + ")",
+    blur: baseBlur * (0.45 + 0.55 * f) / z,
+    off: baseOff * (0.5 + 0.5 * f) / z
+  };
+}
+
 function drawCard(el){
   var r = 3;
+  var sh = shadowFor(0.14, 11, 3);
   ctx.save();
-  ctx.shadowColor = "rgba(21,26,33,.14)";
-  ctx.shadowBlur = 11 / cam.zoom;
-  ctx.shadowOffsetY = 3 / cam.zoom;
+  ctx.shadowColor = sh.color;
+  ctx.shadowBlur = sh.blur;
+  ctx.shadowOffsetY = sh.off;
   ctx.fillStyle = el.link ? "#ffffff" : (el.image ? "#ffffff" : (el.fill || "#ffe9a8"));
   roundRect(ctx, el.x, el.y, el.w, el.h, r);
   ctx.fill();
@@ -2874,10 +2972,11 @@ function framesAt(wx, wy){
 
 function drawFrame(el){
   var k = 1 / cam.zoom;
+  var shF = shadowFor(0.10, 16, 5);
   ctx.save();
-  ctx.shadowColor = "rgba(21,26,33,.10)";
-  ctx.shadowBlur = 16 * k;
-  ctx.shadowOffsetY = 5 * k;
+  ctx.shadowColor = shF.color;
+  ctx.shadowBlur = shF.blur;
+  ctx.shadowOffsetY = shF.off;
   ctx.fillStyle = "#ffffff";
   roundRect(ctx, el.x, el.y, el.w, el.h, 4 * k);
   ctx.fill();
@@ -4627,16 +4726,41 @@ function downloadBlob(blob, filename){
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+var EXP_SCOPE = "all";
+/* 只导出选中：选中容器时连它里面的内容一起带上；连线要两端都在选中里 */
+function exportSubset(){
+  if(EXP_SCOPE !== "sel") return null;
+  var ids = state.selection.slice();
+  if(!ids.length) return null;
+  var keep = {};
+  board().elements.forEach(function(e){
+    if(ids.indexOf(e.id) >= 0 && e.type !== "connector") keep[e.id] = 1;
+  });
+  board().elements.forEach(function(e){
+    if(e.type !== "frame" || !keep[e.id]) return;
+    frameChildren(e).forEach(function(k){ if(k.type !== "connector") keep[k.id] = 1; });
+  });
+  var els = board().elements.filter(function(e){
+    if(e.type === "connector") return keep[e.from] && keep[e.to];
+    return !!keep[e.id];
+  });
+  if(!els.length) return null;
+  return { name: (board().name || "画板") + "-选中", elements: els };
+}
+
 function exportJSON(){
-  var b = board();
-  var data = JSON.stringify(payload(), null, 2);
-  downloadBlob(new Blob([data], { type:"application/json" }), safeName(b.name) + "-备份.json");
+  var sub = exportSubset();
+  var data = sub
+    ? JSON.stringify({ app:"纸面 Paperboard", version:1, exportedAt:new Date().toISOString(), selectionOnly:true, elements:sub.elements }, null, 2)
+    : JSON.stringify(payload(), null, 2);
+  downloadBlob(new Blob([data], { type:"application/json" }), safeName(sub ? sub.name : board().name) + "-备份.json");
+  toast(sub ? "已导出选中内容 .json" : "已导出 .json");
 }
 
 function safeName(s){ return String(s || "画板").replace(/[\\/:*?"<>|]/g, "_"); }
 
 function exportPNG(){
-  var b = board();
+  var b = exportSubset() || board();
   if(!b.elements.length){ toast("画板是空的"); return; }
   var box = unionBox(b.elements);
   var pad = 48;
@@ -4660,7 +4784,7 @@ function exportPNG(){
   for(var i = 0; i < b.elements.length; i++) if(b.elements[i].type !== "frame") drawElementTo(cx2, b.elements[i]);
   c.toBlob(function(blob){
     downloadBlob(blob, safeName(b.name) + ".png");
-    toast("已导出 PNG");
+    toast(EXP_SCOPE === "sel" ? "已导出选中的 PNG" : "已导出 PNG");
   }, "image/png");
 }
 
@@ -4796,10 +4920,10 @@ function svgForBoard(b){
 }
 
 function exportBoardSVG(){
-  var b = board();
+  var b = exportSubset() || board();
   if(!b || !b.elements.length){ toast("画板是空的"); return; }
   downloadBlob(new Blob([svgForBoard(b)], { type: "image/svg+xml" }), safeName(b.name) + ".svg");
-  toast("已导出 SVG（文字可再编辑）");
+  toast(EXP_SCOPE === "sel" ? "已导出选中的 SVG（文字可再编辑）" : "已导出 SVG（文字可再编辑）");
 }
 
 function boardText(b){
@@ -4830,10 +4954,10 @@ function boardText(b){
 }
 
 function exportBoardTXT(){
-  var b = board();
+  var b = exportSubset() || board();
   if(!b || !b.elements.length){ toast("画板是空的"); return; }
   downloadBlob(new Blob([boardText(b)], { type: "text/plain;charset=utf-8" }), safeName(b.name) + ".txt");
-  toast("已导出文本");
+  toast(EXP_SCOPE === "sel" ? "已导出选中的文本" : "已导出文本");
 }
 
 function exportSVGLegacy(){
@@ -5232,6 +5356,7 @@ function syncUI(){
   if(eye) eye.classList.toggle("is-on", !!state.focus);
   updateHint();
   updateNodeOps();
+  paintExpScope();
 }
 
 /* ---- 连线样式浮层 ---- */
@@ -5784,7 +5909,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-36";
+var APP_VERSION = "2026.11.08-37";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6316,11 +6441,11 @@ $("#btnRestore").addEventListener("click", function(){
   });
 });
 
-$("#btnExportJson").addEventListener("click", exportJSON);
+$("#btnExportJson").addEventListener("click", function(){ exportJSON(); closeExpPop(); });
 $("#btnImportJson").addEventListener("click", importJSONFile);
-$("#btnExportPng").addEventListener("click", exportPNG);
-$("#btnExportSvg").addEventListener("click", exportBoardSVG);
-$("#btnExportTxt").addEventListener("click", exportBoardTXT);
+$("#btnExportPng").addEventListener("click", function(){ exportPNG(); closeExpPop(); });
+$("#btnExportSvg").addEventListener("click", function(){ exportBoardSVG(); closeExpPop(); });
+$("#btnExportTxt").addEventListener("click", function(){ exportBoardTXT(); closeExpPop(); });
 
 function updateBackupUI(warn){
   var dot = $("#backupDot"), text = $("#backupText");
