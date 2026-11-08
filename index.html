@@ -614,7 +614,7 @@ body{
   position:fixed;
   right:22px;
   top:64px;
-  width:392px;
+  width:min(392px, calc(100vw - 24px));
   max-height:calc(100vh - 96px);
   overflow-y:auto;
   overscroll-behavior:contain;
@@ -1186,6 +1186,10 @@ body.is-focus #board{background:#f2f3f1}
   #zoomBar{bottom:14px;right:12px}
   #eyeBtn{bottom:70px;right:14px}
   #colorPill{top:60px;left:14px;right:auto;transform:none}
+  #panel{right:10px;top:54px;max-height:calc(100vh - 68px);width:calc(100vw - 20px)}
+  .panel-body,.panel-head{padding-left:14px;padding-right:14px}
+  .man-card{padding:12px 12px 10px}
+  .man-badge{font-size:26px;flex-basis:26px}
 }
 
 /* ===== 使用说明（新手引导） ===== */
@@ -4468,7 +4472,7 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-17";
+var APP_VERSION = "2026.11.08-17b";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
