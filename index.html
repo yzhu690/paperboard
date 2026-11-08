@@ -2500,7 +2500,7 @@ function drawTip(x, y, ang, shape, st){
   ctx.fillStyle = st.stroke;
   ctx.lineWidth = st.width;
   if(shape === "arrow"){
-    var head = 9;
+    var head = 8 + (st.width || 1.8) * 2.4;
     ctx.beginPath();
     ctx.moveTo(x - head * Math.cos(ang - 0.44), y - head * Math.sin(ang - 0.44));
     ctx.lineTo(x, y);
@@ -2508,7 +2508,7 @@ function drawTip(x, y, ang, shape, st){
     ctx.stroke();
   } else if(shape === "dot"){
     ctx.beginPath();
-    ctx.arc(x, y, 3.6, 0, Math.PI * 2);
+    ctx.arc(x, y, 2.6 + (st.width || 1.8) * 0.9, 0, Math.PI * 2);
     ctx.fill();
   } else if(shape === "square"){
     ctx.beginPath();
