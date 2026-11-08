@@ -767,6 +767,11 @@ body{
 }
 
 
+
+.snap-row{display:flex;gap:6px;margin-bottom:8px}
+.snap-select{flex:1;height:30px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:11.5px;padding:0 6px}
+.btn-snap{height:30px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:11.5px;cursor:pointer}
+.btn-snap:disabled{opacity:.45;cursor:default}
 /* ---- 重新裁剪 ---- */
 .crop-pop{position:fixed;inset:0;background:rgba(21,26,33,.55);z-index:96;display:none;align-items:center;justify-content:center;padding:20px}
 .crop-pop.on{display:flex}
@@ -1318,6 +1323,12 @@ details.man-adv .inner{padding:0 12px 12px}
         </div>
         <div class="foot-text" id="footText">每 5 分钟自动写进你指定的网盘同步文件夹，客户端负责上传。</div>
         <button class="btn-folder" id="btnFolder" type="button" data-zh="选择同步文件夹" data-en="Choose sync folder">选择同步文件夹</button>
+        <div class="snap-row">
+          <select id="snapSelect" class="snap-select" data-zh="暂无历史版本" data-en="No versions yet">
+            <option value="">暂无历史版本</option>
+          </select>
+          <button class="btn-snap" id="btnSnapRestore" type="button" data-zh="恢复" data-en="Restore">恢复</button>
+        </div>
         <button class="btn-check-update" id="btnCheckUpdate" type="button" data-zh="检查更新" data-en="Check for updates">检查更新</button>
       </div>
 
@@ -4679,6 +4690,73 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 
+
+/* ---------------- 历史版本（滚动 4 份，每 15 分钟） ---------------- */
+var SNAP_MAX = 4, SNAP_EVERY = 15 * 60 * 1000;
+function readSnaps(done){
+  idbGet("snaps").then(function(list){ done(Array.isArray(list) ? list : []); }).catch(function(){ done([]); });
+}
+function takeSnapshot(force){
+  var payload = { at: Date.now(), boards: state.boards, activeId: state.activeId };
+  readSnaps(function(list){
+    if(!force && list.length && Date.now() - (list[list.length - 1].at || 0) < SNAP_EVERY) return;
+    list.push(payload);
+    while(list.length > SNAP_MAX) list.shift();     /* 超过 4 份就清掉最早的一份 */
+    idbSet("snaps", list).catch(function(){});
+    fillSnapSelect(list);
+  });
+}
+function snapLabel(at){
+  var d = new Date(at);
+  var now = new Date();
+  var hh = ("0" + d.getHours()).slice(-2), mm = ("0" + d.getMinutes()).slice(-2);
+  var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  var md = (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  if(LANG === "en"){ md = (d.getMonth() + 1) + "/" + d.getDate(); }
+  return (sameDay ? tr("今天") : md) + " " + hh + ":" + mm;
+}
+function fillSnapSelect(list){
+  var sel = $("#snapSelect");
+  if(!sel) return;
+  list = list || [];
+  sel.innerHTML = "";
+  if(!list.length){
+    var o0 = document.createElement("option");
+    o0.value = ""; o0.textContent = tr("暂无历史版本");
+    sel.appendChild(o0);
+    var btn0 = $("#btnSnapRestore"); if(btn0) btn0.disabled = true;
+    return;
+  }
+  for(var i = list.length - 1; i >= 0; i--){
+    var o = document.createElement("option");
+    o.value = String(list[i].at);
+    o.textContent = snapLabel(list[i].at);
+    sel.appendChild(o);
+  }
+  var btn = $("#btnSnapRestore"); if(btn) btn.disabled = false;
+}
+function restoreSnapshot(at){
+  readSnaps(function(list){
+    var item = list.filter(function(x){ return String(x.at) === String(at); })[0];
+    if(!item){ toast("这个历史版本已经不在了"); return; }
+    askConfirm("恢复 " + snapLabel(item.at) + " 的内容？", "当前内容会被替换，建议先导出一份备份。", "恢复").then(function(ok){
+      if(!ok) return;
+      idbSet("docBak", { boards: state.boards, activeId: state.activeId }).catch(function(){});
+      state.boards = item.boards;
+      state.activeId = item.activeId && item.boards.some(function(b){ return b.id === item.activeId; })
+        ? item.activeId : item.boards[0].id;
+      history.stack = []; history.index = -1; history.boardId = null;
+      renderBoardList();
+      switchBoard(state.activeId);
+      historyReset();
+      requestRender();
+      scheduleSave();
+      toast("已恢复到 " + snapLabel(item.at));
+    });
+  });
+}
+setInterval(function(){ takeSnapshot(false); }, SNAP_EVERY);
+
 /* ---------------- 重新裁剪 ---------------- */
 var cropEl = null, cropBox = null, cropStage = null, cropDrag = null;
 function openCrop(el){
@@ -4765,7 +4843,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-23";
+var APP_VERSION = "2026.11.08-24";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5224,6 +5302,7 @@ var appEl = document.getElementById("app");
 var drawerToggle = $("#drawerToggle");
 var bodyMask = $("#body-mask");
 function toggleDrawer(force){
+  setTimeout(function(){ readSnaps(function(list){ fillSnapSelect(list); }); }, 0);
   if(!appEl) return;
   var on = (typeof force === "boolean") ? force : !appEl.classList.contains("drawer-open");
   appEl.classList.toggle("drawer-open", on);
@@ -5372,6 +5451,11 @@ var I18N_EN = {
   "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "今天": "Today",
+  "暂无历史版本": "No versions yet",
+  "恢复": "Restore",
+  "还没有可恢复的历史版本": "No versions to restore yet",
+  "这个历史版本已经不在了": "That version is gone",
   "置顶": "Bring to front",
   "置底": "Send to back",
   "已置顶": "Moved to front",
@@ -6272,6 +6356,14 @@ function boot(){
   try{ wireCloudUI(); wireCloudLogin(); wireAsk(); wireEmoji(); }catch(err){ console.error(err); }
   if(cloudLinked()){ cloudPaint(); cloudStartPolling(); }
   try{ wireSyncUI(); }catch(err){}
+  var snapBtn = $("#btnSnapRestore");
+  if(snapBtn) snapBtn.addEventListener("click", function(){
+    var sel = $("#snapSelect");
+    if(!sel || !sel.value){ toast("还没有可恢复的历史版本"); return; }
+    restoreSnapshot(sel.value);
+  });
+  readSnaps(function(list){ fillSnapSelect(list); });
+  setTimeout(function(){ takeSnapshot(true); }, 1200);
   var checkBtn = $("#btnCheckUpdate");
   if(checkBtn) checkBtn.addEventListener("click", function(){
     checkBtn.disabled = true;
