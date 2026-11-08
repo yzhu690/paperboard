@@ -766,6 +766,27 @@ body{
   background:var(--line);
 }
 
+
+/* ---- 重新裁剪 ---- */
+.crop-pop{position:fixed;inset:0;background:rgba(21,26,33,.55);z-index:96;display:none;align-items:center;justify-content:center;padding:20px}
+.crop-pop.on{display:flex}
+.crop-card{background:var(--paper-2);border-radius:10px;padding:14px 16px 16px;box-shadow:0 24px 70px -24px rgba(21,26,33,.6);width:min(560px, calc(100vw - 28px))}
+.crop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.crop-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+.crop-x{border:0;background:transparent;font-size:18px;line-height:1;color:#8b9299;cursor:pointer;padding:2px 4px}
+.crop-stage{position:relative;display:inline-block;max-width:100%;line-height:0;background:#eef1ef;border-radius:6px;overflow:hidden;user-select:none;touch-action:none;margin:0 auto}
+#cropImg{display:block;max-width:100%;max-height:52vh;pointer-events:none}
+.crop-box{position:absolute;left:0;top:0;width:100%;height:100%;border:1px solid rgba(255,255,255,.9);box-shadow:0 0 0 9999px rgba(21,26,33,.42);cursor:move;touch-action:none}
+.crop-box .ch{position:absolute;width:12px;height:12px;background:#d8e44c;border:1px solid #151a21;border-radius:2px;cursor:nwse-resize}
+.crop-box .ch.tl{left:-6px;top:-6px}
+.crop-box .ch.tr{right:-6px;top:-6px}
+.crop-box .ch.bl{left:-6px;bottom:-6px}
+.crop-box .ch.br{right:-6px;bottom:-6px}
+.crop-tip{font-size:11px;color:#7c848b;line-height:1.6;margin-top:10px}
+.crop-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.crop-btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:12px;color:var(--ink);cursor:pointer}
+.crop-btn.is-main{background:var(--ink);color:#fff;border-color:var(--ink)}
+
 /* 快捷键表 */
 #keys{
   display:none;
@@ -1648,6 +1669,24 @@ create policy "own docs" on pb_docs
   <div class="keys-note">上面写 Ctrl 的地方，Mac 上按 Command（Cmd）键效果相同（撤销、复制、全选、粘贴都通用）。</div>
 </div>
 
+<div id="cropPop" class="crop-pop">
+  <div class="crop-card">
+    <div class="crop-head"><span class="crop-title">重新裁剪</span><button type="button" class="crop-x" id="cropClose">×</button></div>
+    <div class="crop-stage" id="cropStage">
+      <img id="cropImg" alt="">
+      <div id="cropBox" class="crop-box">
+        <span class="ch tl" data-h="tl"></span><span class="ch tr" data-h="tr"></span>
+        <span class="ch bl" data-h="bl"></span><span class="ch br" data-h="br"></span>
+      </div>
+    </div>
+    <div class="crop-tip">在图上拖出一个框，框里的部分才会显示。拖框可移动，拖四角可改大小。</div>
+    <div class="crop-acts">
+      <button type="button" class="crop-btn" id="cropReset">还原整张</button>
+      <button type="button" class="crop-btn" id="cropCancel">取消</button>
+      <button type="button" class="crop-btn is-main" id="cropApply">应用</button>
+    </div>
+  </div>
+</div>
 <div id="login">
   <div class="login-card">
     <div class="login-title">登录到「纸面」</div>
@@ -2415,19 +2454,27 @@ function drawConnector(conn){
 }
 
 /* ---- 卡片绘制 ---- */
-function drawCover(img, x, y, w, h, radius){
+function srcRect(img, crop){
+  var nw = img.naturalWidth, nh = img.naturalHeight;
+  if(!crop || !crop.w || !crop.h) return { x: 0, y: 0, w: nw, h: nh };
+  return { x: crop.x * nw, y: crop.y * nh, w: crop.w * nw, h: crop.h * nh };
+}
+function drawCoverCrop(img, crop, x, y, w, h){
+  var s0 = srcRect(img, crop);
+  var ir = s0.w / s0.h, br = w / h;
+  var sx, sy, sw, sh;
+  if(ir > br){ sh = s0.h; sw = sh * br; sx = s0.x + (s0.w - sw) / 2; sy = s0.y; }
+  else { sw = s0.w; sh = sw / br; sx = s0.x; sy = s0.y + (s0.h - sh) / 2; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+function drawCover(img, x, y, w, h, radius, crop){
   if(!img || !img.complete || !img.naturalWidth){
     ctx.fillStyle = "#e7ebe9";
     roundRect(ctx, x, y, w, h, radius || 0);
     ctx.fill();
     return;
   }
-  var ir = img.naturalWidth / img.naturalHeight;
-  var br = w / h;
-  var sx, sy, sw, sh;
-  if(ir > br){ sh = img.naturalHeight; sw = sh * br; sx = (img.naturalWidth - sw) / 2; sy = 0; }
-  else { sw = img.naturalWidth; sh = sw / br; sx = 0; sy = (img.naturalHeight - sh) / 2; }
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  drawCoverCrop(img, crop, x, y, w, h);
 }
 
 function imgFor(src){
@@ -2491,7 +2538,7 @@ function clipBox(x, y, w, h, r){
 function drawImageCard(el){
   var thumbH = Math.min(el.w * 0.72, el.h - 34);
   clipBox(el.x, el.y, el.w, el.h, 3);
-  drawCover(imgFor(el.image), el.x, el.y, el.w, thumbH, 0);
+  drawCover(imgFor(el.image), el.x, el.y, el.w, thumbH, 0, el.crop);
   ctx.restore();
   if(el.text){
     ctx.fillStyle = (el.fill || "#ffe9a8");
@@ -2736,7 +2783,12 @@ function drawElement(el){
       imgCache.set(el.src, img);
     }
     if(img.complete && img.naturalWidth){
-      ctx.drawImage(img, el.x, el.y, el.w, el.h);
+      if(el.crop){
+        var sR = srcRect(img, el.crop);
+        ctx.drawImage(img, sR.x, sR.y, sR.w, sR.h, el.x, el.y, el.w, el.h);
+      } else {
+        ctx.drawImage(img, el.x, el.y, el.w, el.h);
+      }
     } else {
       ctx.fillStyle = "#e9eceb";
       roundRect(ctx, el.x, el.y, el.w, el.h, 3);
@@ -3542,6 +3594,19 @@ cv.addEventListener("dblclick", function(e){
   if(hit && hit.type === "boardref"){
     if(hit.target && state.boards.some(function(x){ return x.id === hit.target; })) switchBoard(hit.target);
     else toast("引用的画板已被删除");
+    return;
+  }
+  if(hit && (hit.src || (hit.image && !hit.link))){
+    var thumbH2 = hit.type === "image" ? hit.h : Math.min(hit.w * 0.72, hit.h - 34);
+    if(hit.type !== "image" && hit.text && wp.y > hit.y + thumbH2){
+      state.selection = [hit.id];
+      syncUI();
+      openEditor(hit);
+      return;
+    }
+    state.selection = [hit.id];
+    syncUI();
+    openCrop(hit);
     return;
   }
   if(hit && (hit.type === "note" || hit.type === "text")){
@@ -4599,8 +4664,94 @@ $("#eyeBtn").addEventListener("click", function(){
   else startWalk();
 });
 
+
+/* ---------------- 重新裁剪 ---------------- */
+var cropEl = null, cropBox = null, cropStage = null, cropDrag = null;
+function openCrop(el){
+  cropEl = el;
+  var src = el.src || el.image;
+  var pop = $("#cropPop");
+  cropBox = $("#cropBox"); cropStage = $("#cropStage");
+  var img = $("#cropImg");
+  img.style.width = ""; img.style.height = "";
+  img.onload = function(){
+    var maxW = Math.min(520, window.innerWidth - 80);
+    var maxH = Math.min(window.innerHeight * 0.52, 460);
+    var r = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+    img.style.width = Math.round(img.naturalWidth * r) + "px";
+    img.style.height = Math.round(img.naturalHeight * r) + "px";
+    var c = el.crop || { x: 0, y: 0, w: 1, h: 1 };
+    setCropRect(c.x, c.y, c.w, c.h);
+  };
+  img.src = src;
+  pop.classList.add("on");
+}
+function closeCrop(){
+  $("#cropPop").classList.remove("on");
+  cropEl = null; cropDrag = null;
+}
+function setCropRect(fx, fy, fw, fh){
+  var w = cropStage.clientWidth, h = cropStage.clientHeight;
+  fw = Math.max(0.06, Math.min(1, fw)); fh = Math.max(0.06, Math.min(1, fh));
+  fx = Math.max(0, Math.min(1 - fw, fx)); fy = Math.max(0, Math.min(1 - fh, fy));
+  cropBox.style.left = (fx * w) + "px";
+  cropBox.style.top = (fy * h) + "px";
+  cropBox.style.width = (fw * w) + "px";
+  cropBox.style.height = (fh * h) + "px";
+}
+function cropRectFrac(){
+  var w = cropStage.clientWidth || 1, h = cropStage.clientHeight || 1;
+  var l = parseFloat(cropBox.style.left) || 0, t = parseFloat(cropBox.style.top) || 0;
+  return { x: l / w, y: t / h, w: (parseFloat(cropBox.style.width) || 0) / w, h: (parseFloat(cropBox.style.height) || 0) / h };
+}
+(function bindCrop(){
+  var pop = $("#cropPop");
+  $( "#cropClose").addEventListener("click", closeCrop);
+  $("#cropCancel").addEventListener("click", closeCrop);
+  pop.addEventListener("pointerdown", function(e){ if(e.target === pop) closeCrop(); });
+  $("#cropReset").addEventListener("click", function(){ setCropRect(0, 0, 1, 1); });
+  $("#cropApply").addEventListener("click", function(){
+    if(!cropEl){ closeCrop(); return; }
+    var f = cropRectFrac();
+    if(f.w > 0.985 && f.h > 0.985 && f.x < 0.01 && f.y < 0.01){ delete cropEl.crop; }
+    else cropEl.crop = { x: f.x, y: f.y, w: Math.min(1 - f.x, f.w), h: Math.min(1 - f.y, f.h) };
+    historyPush(); requestRender(); scheduleSave(); syncUI();
+    closeCrop(); toast("已裁剪");
+  });
+  $("#cropBox").addEventListener("pointerdown", function(e){
+    var handle = e.target.getAttribute && e.target.getAttribute("data-h");
+    var w = cropStage.clientWidth, h = cropStage.clientHeight;
+    var l = parseFloat(cropBox.style.left) || 0, t = parseFloat(cropBox.style.top) || 0;
+    var bw = parseFloat(cropBox.style.width) || 0, bh = parseFloat(cropBox.style.height) || 0;
+    cropDrag = { handle: handle, sx: e.clientX, sy: e.clientY, l: l, t: t, w: bw, h: bh, W: w, H: h };
+    e.preventDefault(); e.stopPropagation();
+    try{ cropBox.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  $("#cropBox").addEventListener("pointermove", function(e){
+    if(!cropDrag) return;
+    var d = cropDrag;
+    var dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    var minPx = 18;
+    if(!d.handle){
+      var nl = Math.max(0, Math.min(d.W - d.w, d.l + dx));
+      var nt = Math.max(0, Math.min(d.H - d.h, d.t + dy));
+      cropBox.style.left = nl + "px"; cropBox.style.top = nt + "px";
+      return;
+    }
+    var l = d.l, t = d.t, r = d.l + d.w, b = d.t + d.h;
+    if(d.handle.indexOf("l") >= 0){ l = Math.max(0, Math.min(r - minPx, d.l + dx)); }
+    if(d.handle.indexOf("r") >= 0){ r = Math.min(d.W, Math.max(l + minPx, d.l + d.w + dx)); }
+    if(d.handle.indexOf("t") >= 0){ t = Math.max(0, Math.min(b - minPx, d.t + dy)); }
+    if(d.handle.indexOf("b") >= 0){ b = Math.min(d.H, Math.max(t + minPx, d.t + d.h + dy)); }
+    cropBox.style.left = l + "px"; cropBox.style.top = t + "px";
+    cropBox.style.width = (r - l) + "px"; cropBox.style.height = (b - t) + "px";
+  });
+  $("#cropBox").addEventListener("pointerup", function(){ cropDrag = null; });
+  $("#cropBox").addEventListener("pointercancel", function(){ cropDrag = null; });
+})();
+
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-20";
+var APP_VERSION = "2026.11.08-21";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5179,6 +5330,12 @@ var I18N_EN = {
   "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "重新裁剪": "Re-crop",
+  "取消": "Cancel",
+  "应用": "Apply",
+  "在图上拖出一个框，框里的部分才会显示。拖框可移动，拖四角可改大小。": "Drag a box on the image — only what is inside it will show. Drag the box to move it, drag a corner to resize.",
+  "还原整张": "Show the whole image",
+  "已裁剪": "Cropped",
   "双指": "Two fingers",
   "两指拖动＝平移画布；两指张开 / 捏合＝缩放": "Two fingers drag to pan; pinch to zoom",
   "抓手": "Hand tool",
