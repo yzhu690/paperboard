@@ -51,11 +51,12 @@ body{
 #app{
   display:flex;
   height:100vh;
+  height:100dvh;
   min-width:1060px;
   min-height:620px;
   max-width:100vw;
 }
-html,body{max-width:100%;overflow-x:hidden}
+html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
 @media (max-width:1100px){ #app{min-width:0} }
 
 /* ============ 左侧：画板抽屉（浅色） ============ */
@@ -3378,8 +3379,34 @@ function openEditor(el){
   editor.style.background = isCard ? ((el.link || el.image) ? "#ffffff" : (el.fill || "#ffe9a8")) : "#f7f8f6";
   editor.value = el.text || "";
   editor.focus();
+  setTimeout(keepEditingVisible, 300);
   editor.setSelectionRange(editor.value.length, editor.value.length);
 }
+/* 手机键盘弹起后，保证正在编辑的元素不会被键盘顶出可视区 */
+function keepEditingVisible(){
+  if(!editingId || !window.visualViewport) return;
+  var el = elById(editingId);
+  if(!el) return;
+  var vh = window.visualViewport.height;
+  var bb = bboxEl(el);
+  var pBottom = toScreen(bb.x, bb.y + bb.h).y;
+  var pTop = toScreen(bb.x, bb.y).y;
+  var limit = Math.max(160, vh - 24);
+  if(pBottom > limit){
+    cam.y += (pBottom - limit) / cam.zoom + 16 / cam.zoom;
+    requestRender(); syncZoom();
+    var box2 = bboxEl(el), pp = toScreen(box2.x, box2.y);
+    editor.style.left = (pp.x + 15 * cam.zoom - 1) + "px";
+    editor.style.top = (pp.y + 15 * cam.zoom - 1) + "px";
+  } else if(pTop < 0){
+    cam.y += pTop / cam.zoom - 16 / cam.zoom;
+    requestRender(); syncZoom();
+    var box3 = bboxEl(el), pp3 = toScreen(box3.x, box3.y);
+    editor.style.left = (pp3.x + 15 * cam.zoom - 1) + "px";
+    editor.style.top = (pp3.y + 15 * cam.zoom - 1) + "px";
+  }
+}
+
 function closeEditor(commit){
   if(!editingId) return;
   var el = board().elements.filter(function(e){ return e.id === editingId; })[0];
@@ -5561,7 +5588,7 @@ function healUiState(){
 }
 window.addEventListener("resize", function(){ healUiState(); syncZoom(); updateHint(); });
 if(window.visualViewport){
-  window.visualViewport.addEventListener("resize", function(){ refreshDpr(); healUiState(); syncZoom(); requestRender(); });
+  window.visualViewport.addEventListener("resize", function(){ refreshDpr(); healUiState(); syncZoom(); keepEditingVisible(); requestRender(); });
 }
 window.addEventListener("orientationchange", function(){ setTimeout(function(){ healUiState(); syncZoom(); updateHint(); requestRender(); }, 220); });
 document.addEventListener("visibilitychange", function(){ if(!document.hidden){ healUiState(); syncZoom(); updateHint(); updateNodeOps(); requestRender(); } });
@@ -6010,7 +6037,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-40";
+var APP_VERSION = "2026.11.08-41";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
