@@ -804,6 +804,7 @@ body{
   justify-self:start;
 }
 .kl span{color:#5c656f}
+.keys-note{font-size:11px;line-height:1.6;color:#7c848b;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
 
 #toast{
   position:fixed;
@@ -1403,7 +1404,7 @@ details.man-adv .inner{padding:0 12px 12px}
     <text x="218" y="72" data-zh="自动保存" data-en="Auto-saved">自动保存</text>
   </g>
 </svg>
-<div class="man-step"><span class="n">1</span><div class="t" data-zh="用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。" data-en="Open this page in <b>Chrome or Edge</b> (a phone's own browser works too).">用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好。" data-en="To type, <b>double-click empty canvas</b>. To switch tools, <b>hold the right mouse button and flick</b> (or <b>long-press</b> on a phone) to open the wheel, then tap one.">想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好。</div></div><div class="man-step"><span class="n">3</span><div class="t" data-zh="不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。" data-en="No save button — <b>every edit is stored automatically</b>, and it is still there next time in the same browser.">不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。</div></div>      <div class="man-tip" data-zh="先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。" data-en="One thing to remember: your drawing lives in <b>this device's browser</b>. To use it elsewhere you move it — see block 2.">先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。</div>
+<div class="man-step"><span class="n">1</span><div class="t" data-zh="用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。" data-en="Open this page in <b>Chrome or Edge</b> (a phone's own browser works too).">用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好；手机上<b>双指</b>拖动可平移、捏合可缩放。" data-en="To type, <b>double-click empty canvas</b>. To switch tools, <b>hold the right mouse button and flick</b> (or <b>long-press</b> on a phone) to open the wheel, then tap one. On a phone, drag with <b>two fingers</b> to pan and pinch to zoom.">想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好。</div></div><div class="man-step"><span class="n">3</span><div class="t" data-zh="不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。" data-en="No save button — <b>every edit is stored automatically</b>, and it is still there next time in the same browser.">不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。</div></div>      <div class="man-tip" data-zh="先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。" data-en="One thing to remember: your drawing lives in <b>this device's browser</b>. To use it elsewhere you move it — see block 2.">先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。</div>
     </div>
     <div class="man-card">
       <div class="man-h"><span class="man-badge">2</span><span class="man-title" data-zh="让手机和电脑是同一份画板" data-en="One board on every device">让手机和电脑是同一份画板</span><span class="man-sub" data-zh="二选一" data-en="Pick one">二选一</span></div>
@@ -1632,6 +1633,7 @@ create policy "own docs" on pb_docs
   <div class="kl"><kbd>长按</kbd><span>触屏长按 350ms → 同一个圆环，点一格就行</span></div>
   <div class="kl"><kbd>轻点</kbd><span>触屏轻点＝选中；单指拖＝框选</span></div>
   <div class="kl"><kbd>滚轮</kbd><span>平移画布；Ctrl + 滚轮＝缩放</span></div>
+  <div class="kl"><kbd>双指</kbd><span>两指拖动＝平移画布；两指张开 / 捏合＝缩放</span></div>
   <div class="kl"><kbd>抓手</kbd><span>手机上移动画布：圆环里选「抓手」再拖</span></div>
   <div class="kl"><kbd>拖中点</kbd><span>选中连线后拖中间那个点 → 调弯曲度</span></div>
 
@@ -1643,6 +1645,7 @@ create policy "own docs" on pb_docs
   <div class="section-k" style="margin:12px 0 6px">音效</div>
   <div class="kl"><kbd>喇叭</kbd><span>右上角按钮开 / 关，默认开着</span></div>
   <div class="kl"><kbd>响</kbd><span>只在新增、删除时响；移动改色不响</span></div>
+  <div class="keys-note">上面写 Ctrl 的地方，Mac 上按 Command（Cmd）键效果相同（撤销、复制、全选、粘贴都通用）。</div>
 </div>
 
 <div id="login">
@@ -3127,6 +3130,35 @@ cv.addEventListener("pointerdown", function(e){
   if(e.button === 2){ openRadial({ x: e.clientX, y: e.clientY }, sp); e.preventDefault(); return; }
   if(radialOpen && e.button === 0){ closeRadial(); return; }
 
+  /* 触屏：两指＝平移+缩放，直接接管，不再画/选 */
+  if(e.pointerType === "touch" && e.button === 0){
+    if(!Object.keys(touchPts).length) selBeforeTouch = state.selection.slice();
+    touchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var pids = Object.keys(touchPts);
+    if(pids.length >= 2){
+      /* 撤回第一根手指可能造成的误选/误移 */
+      if(drag && drag.mode === "move" && drag.snap){
+        Object.keys(drag.snap).forEach(function(id0){
+          var el0 = elById(id0);
+          if(el0 && drag.snap[id0]){ el0.x = drag.snap[id0].x; el0.y = drag.snap[id0].y; }
+        });
+      }
+      if(selBeforeTouch) state.selection = selBeforeTouch.slice();
+      syncUI();
+      clearTimeout(touchTimer);
+      touchOrigin = null;
+      drag = null;
+      state.marquee = null;
+      if(radialOpen) closeRadial();
+      var pa = touchPts[pids[0]], pb = touchPts[pids[1]];
+      var pmid = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
+      var ploc = pointer({ clientX: pmid.x, clientY: pmid.y });
+      pinch = { d0: Math.hypot(pa.x - pb.x, pa.y - pb.y) || 1, z0: cam.zoom, w0: toWorld(ploc.x, ploc.y) };
+      requestRender();
+      return;
+    }
+  }
+
   /* 触屏：长按 350ms 唤出圆环；短按仍是普通选中 */
   if(e.pointerType === "touch" && e.button === 0){
     touchOrigin = { x: sp.x, y: sp.y, cx: e.clientX, cy: e.clientY, t: Date.now() };
@@ -3264,6 +3296,22 @@ cv.addEventListener("pointermove", function(e){
     clearTimeout(touchTimer);
     touchOrigin = null;
   }
+  if(pinch && touchPts[e.pointerId]){
+    touchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var pids2 = Object.keys(touchPts);
+    if(pids2.length >= 2){
+      var pa2 = touchPts[pids2[0]], pb2 = touchPts[pids2[1]];
+      var pd = Math.hypot(pa2.x - pb2.x, pa2.y - pb2.y) || 1;
+      var pm2 = { x: (pa2.x + pb2.x) / 2, y: (pa2.y + pb2.y) / 2 };
+      var pl2 = pointer({ clientX: pm2.x, clientY: pm2.y });
+      cam.zoom = clamp(pinch.z0 * (pd / pinch.d0), 0.08, 5);
+      cam.x = pinch.w0.x - pl2.x / cam.zoom;
+      cam.y = pinch.w0.y - pl2.y / cam.zoom;
+      syncZoom(); requestRender();
+      return;
+    }
+  }
+
   var sp = pointer(e);
   var wp = toWorld(sp.x, sp.y);
   $("#hint").textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　空格拖动画布　·　Ctrl 滚轮缩放";
@@ -3391,6 +3439,11 @@ cv.addEventListener("pointermove", function(e){
 });
 
 cv.addEventListener("pointerup", function(e){
+  if(e.pointerType === "touch"){
+    delete touchPts[e.pointerId];
+    if(Object.keys(touchPts).length < 2) pinch = null;
+    if(pinch) return;
+  }
   clearTimeout(touchTimer);
   touchOrigin = null;
   if(touchRadialOpen){
@@ -4547,7 +4600,7 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-19b";
+var APP_VERSION = "2026.11.08-20";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -4577,6 +4630,9 @@ var RADIAL_BASE = "";
 var radialOpen = false;
 var touchTimer = null;
 var touchOrigin = null;
+var touchPts = {};
+var pinch = null;
+var selBeforeTouch = null;
 var downTool = "select";
 var touchRadialOpen = false;
 var lastPointerWorld = { x: 0, y: 0 };
@@ -5123,6 +5179,8 @@ var I18N_EN = {
   "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "双指": "Two fingers",
+  "两指拖动＝平移画布；两指张开 / 捏合＝缩放": "Two fingers drag to pan; pinch to zoom",
   "抓手": "Hand tool",
   "手机上移动画布：圆环里选「抓手」再拖": "Moving the canvas on a phone: pick the hand tool in the wheel, then drag",
   "拖中点": "Drag midpoint",
@@ -5134,6 +5192,7 @@ var I18N_EN = {
   "上一页 / 下一页": "Previous / next page",
   "退出聚焦": "Exit focus",
   "A 箭头": "A arrow",
+  "上面写 Ctrl 的地方，Mac 上按 Command（Cmd）键效果相同（撤销、复制、全选、粘贴都通用）。": "Where it says Ctrl, the Command (Cmd) key does the same on a Mac (undo, duplicate, select all, paste).",
   "音效": "Sound",
   "喇叭": "Speaker",
   "右上角按钮开 / 关，默认开着": "Toggle with the top-right button; on by default",
