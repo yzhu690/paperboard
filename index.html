@@ -4358,7 +4358,9 @@ function deleteSelection(){
   });
   board().elements = board().elements.filter(function(el){ return ids.indexOf(el.id) < 0; });
   state.selection = [];
+  compactSeqs();
   historyPush(); requestRender(); syncUI(); scheduleSave();
+  try{ updateWalkCount(); }catch(e){}
 }
 
 /* 复制若干元素，并同步复制它们与其它元素之间的连线（关系一一对应） */
@@ -5203,6 +5205,12 @@ function syncFrameSeq(){
   box.style.left = Math.max(12, p.x) + "px";
   box.style.top = Math.max(12, p.y - 34) + "px";
   box.classList.add("on");
+}
+/* 容器被删掉后，剩下的按原来的先后关系重新紧凑编号 */
+function compactSeqs(){
+  var all = board().elements.filter(function(e){ return e.type === "frame" && e.seq; });
+  all.sort(function(a, b2){ return a.seq - b2.seq; });
+  all.forEach(function(f, i){ f.seq = i + 1; });
 }
 function normalizeSeqs(keep){
   var fs = seqFrames();
