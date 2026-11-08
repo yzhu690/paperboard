@@ -3391,24 +3391,20 @@ function keepEditingVisible(){
   if(!editingId || !window.visualViewport) return;
   var el = elById(editingId);
   if(!el) return;
-  var vh = window.visualViewport.height;
+  var vh = Math.min(window.visualViewport.height, window.innerHeight);  /* 键盘弹起后真正的可见高度 */
   var bb = bboxEl(el);
-  var pBottom = toScreen(bb.x, bb.y + bb.h).y;
   var pTop = toScreen(bb.x, bb.y).y;
-  var limit = Math.max(160, vh - 24);
-  if(pBottom > limit){
-    cam.y += (pBottom - limit) / cam.zoom + 16 / cam.zoom;
-    requestRender(); syncZoom();
-    var box2 = bboxEl(el), pp = toScreen(box2.x, box2.y);
-    editor.style.left = (pp.x + 15 * cam.zoom - 1) + "px";
-    editor.style.top = (pp.y + 15 * cam.zoom - 1) + "px";
-  } else if(pTop < 0){
-    cam.y += pTop / cam.zoom - 16 / cam.zoom;
-    requestRender(); syncZoom();
-    var box3 = bboxEl(el), pp3 = toScreen(box3.x, box3.y);
-    editor.style.left = (pp3.x + 15 * cam.zoom - 1) + "px";
-    editor.style.top = (pp3.y + 15 * cam.zoom - 1) + "px";
-  }
+  var pBot = toScreen(bb.x, bb.y + bb.h).y;
+  /* 完全落在键盘上方可见区里：画布一动不动 */
+  if(pTop >= 8 && pBot <= vh - 12) return;
+  /* 会被遮住：整体平移，让这张便签落在可见区正中 */
+  var wantCenter = vh / 2;
+  var curCenter = (pTop + pBot) / 2;
+  cam.y += (curCenter - wantCenter) / cam.zoom;
+  requestRender(); syncZoom();
+  var b2 = bboxEl(el), pp = toScreen(b2.x, b2.y);
+  editor.style.left = (pp.x + 15 * cam.zoom - 1) + "px";
+  editor.style.top = (pp.y + 15 * cam.zoom - 1) + "px";
 }
 
 function closeEditor(commit){
@@ -3885,6 +3881,8 @@ cv.addEventListener("pointerdown", function(e){
       drag = null;
       state.marquee = null;
       if(radialOpen) closeRadial();
+      touchGestureAt = Date.now();
+      lastTap = { id:null, at:0, blank:false, blankAt:0 };
       var pa = touchPts[pids[0]], pb = touchPts[pids[1]];
       var pmid = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
       var ploc = pointer({ clientX: pmid.x, clientY: pmid.y });
@@ -4093,6 +4091,7 @@ cv.addEventListener("pointermove", function(e){
       var pd = Math.hypot(pa2.x - pb2.x, pa2.y - pb2.y) || 1;
       var pm2 = { x: (pa2.x + pb2.x) / 2, y: (pa2.y + pb2.y) / 2 };
       var pl2 = pointer({ clientX: pm2.x, clientY: pm2.y });
+      touchGestureAt = Date.now();
       cam.zoom = clamp(pinch.z0 * (pd / pinch.d0), 0.08, 5);
       cam.x = pinch.w0.x - pl2.x / cam.zoom;
       cam.y = pinch.w0.y - pl2.y / cam.zoom;
@@ -4267,9 +4266,12 @@ cv.addEventListener("pointermove", function(e){
   }
 });
 
-var lastTap = { id:null, at:0 };
+var lastTap = { id:null, at:0, blank:false, blankAt:0 };
+var touchGestureAt = 0;   /* 双指手势结束后的冷却时间，避免被当成双击 */
 function handleTouchDoubleTap(e){
   if(e.pointerType !== "touch" || pinch) return false;
+  if(Object.keys(touchPts).length > 1) return false;
+  if(Date.now() - touchGestureAt < 700){ lastTap = { id:null, at:0, blank:false, blankAt:0 }; return false; }
   if(drag && (drag.moved || drag.mode === "create")) return false;
   var sp = pointer(e);
   var wp = toWorld(sp.x, sp.y);
@@ -4365,6 +4367,19 @@ cv.addEventListener("pointerup", function(e){
       board().elements.push(pr);
       state.selection = [pr.id];
       historyPush();
+      if((pr.type === "arrow" || pr.type === "line") && quickArrowFrom){
+        var anchorEl = elById(quickArrowFrom);
+        if(anchorEl && anchorEl.id !== pr.id){
+          pr.from = anchorEl.id;
+          var bA = bboxEl(anchorEl);
+          var cx = bA.x + bA.w / 2, cy = bA.y + bA.h / 2;
+          pr.x1 = cx; pr.y1 = cy;
+          var tgt2 = hitTest(wp.x, wp.y);
+          if(tgt2 && tgt2.id !== pr.id && tgt2.id !== anchorEl.id){ pr.to = tgt2.id; }
+          if(pr.from && pr.to) upgradeArrowToConnector(pr);
+        }
+      }
+      quickArrowFrom = null;
     }
     setTool("select");
   } else if(drag.mode === "draw"){
@@ -5354,7 +5369,7 @@ function nodeOpsEl(){
       if(!id) return;
       var op = t.getAttribute("data-op");
       if(op === "child") mindChild(id);
-      else if(op === "dup") duplicateWithLinks([id], 24, 24);
+      else if(op === "dup") startQuickArrow(id);
       else mindSibling(id);
       requestRender(); scheduleSave();
     });
@@ -5364,7 +5379,7 @@ function nodeOpsEl(){
       var db = document.createElement("button");
       db.type = "button";
       db.setAttribute("data-op", "dup");
-      db.innerHTML = '<i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#151a21" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="3.5" width="11" height="11" rx="2"></rect><rect x="9.5" y="9.5" width="11" height="11" rx="2"></rect></svg></i>复制';
+      db.innerHTML = '<i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#151a21" stroke-width="2" stroke-linecap="round"><path d="M4 12h14"></path><path d="M13 7l5 5-5 5"></path></svg></i>箭头';
       box.appendChild(db);
     }
     var spans = box.querySelectorAll("button span");
@@ -5376,6 +5391,17 @@ function nodeOpsEl(){
 }
 
 /* 选中单个思维节点时，在它旁边浮出「下一级 / 同级」 */
+var quickArrowFrom = null;
+function startQuickArrow(id){
+  var el = elById(id);
+  if(!el) return;
+  quickArrowFrom = id;
+  setTool("arrow");
+  state.selection = [id];
+  syncUI();
+  toast("从那根便签往另一个元素拖箭头，松手就连上");
+}
+
 function updateNodeOps(){
   var box = nodeOpsEl();
   if(!box) return;
@@ -5428,7 +5454,7 @@ function updateHint(wp){
   if(one && (one.type === "note" || one.type === "card" || one.type === "text")){
     var lvl = mindLevelOf(one.id);
     var base = TOUCH_UI
-      ? "已选中：点右上「+ 下一级」往下长一层"
+      ? "已选中：点「+ 下一级」往下长一层，点「箭头」拉去连线"
       : "已选中：Tab 新增下一级　·　Enter 新增同级　·　双击改字";
     if(TOUCH_UI && lvl >= 2) base = "已选中：点「+ 下一级」继续分支，「= 同级」并排一层";
     if(!TOUCH_UI && lvl < 2) base = "已选中：Tab 新增下一级　·　双击改字　·　拖右下角缩放";
@@ -6045,7 +6071,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-42";
+var APP_VERSION = "2026.11.08-43";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
