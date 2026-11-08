@@ -2328,10 +2328,11 @@ var measureCtx = (function(){
 function autoFitCard(el){
   if(!el || (el.type !== "note" && el.type !== "card")) return;
   if(el.link && !el.text) return;
+  if(!el.font0) el.font0 = el.fontSize || 17;   /* 记住原始字号，放大时能回到这个大小 */
   var pad = 15;
   var maxW = Math.max(24, el.w - pad * 2);
   var maxH = Math.max(20, el.h - pad * 2);
-  var size = Math.max(8, Math.min(56, el.fontSize || 17));
+  var size = Math.max(8, Math.min(56, el.font0));
   var guard = 0;
   while(size > 8 && guard < 120){
     measureCtx.font = "400 " + size + "px 'Noto Sans SC','PingFang SC',sans-serif";
@@ -2912,7 +2913,7 @@ function closeEditor(commit){
    9. 元素创建
    ============================================================ */
 function mkNote(wx, wy){
-  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, text:"" };
+  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, font0:17, text:"" };
 }
 function mkText(wx, wy){
   return { id:uid(), type:"text", x:wx, y:wy, w:320, h:44, text:"", fontSize:22, color:"#1b2027" };
@@ -3300,7 +3301,10 @@ cv.addEventListener("pointerdown", function(e){
     var n = mkNote(wp.x, wp.y);
     addElement(n, true);
     setTool("select");
-    setTimeout(function(){ openEditor(n); }, 0);
+    pendingEditId = n.id;
+    setTimeout(function(){
+      if(pendingEditId === n.id && !state.editing){ pendingEditId = null; openEditor(n); }
+    }, 0);
     return;
   }
   if(state.tool === "text"){
@@ -3430,9 +3434,8 @@ cv.addEventListener("pointermove", function(e){
     if(el2.emoji){
       el2.fontSize = Math.max(14, Math.round(Math.min(el2.w, el2.h) * 0.56));
     }
-    if((el2.type === "note" || el2.type === "card") && o2.w > 0 && o2.h > 0){
-      var k = Math.min(el2.w / o2.w, el2.h / o2.h);
-      el2.fontSize = Math.max(8, Math.min(56, (drag.fs0 || 17) * k));
+    if(el2.type === "note" || el2.type === "card"){
+      /* 字号只按“装不装得下”收缩，不随尺寸等比缩放；放大后能回到原始字号 */
       autoFitCard(el2);
     }
     requestRender(); return;
@@ -3491,6 +3494,11 @@ cv.addEventListener("pointermove", function(e){
 });
 
 cv.addEventListener("pointerup", function(e){
+  if(pendingEditId){
+    var pe0 = elById(pendingEditId);
+    pendingEditId = null;
+    if(pe0 && !state.editing) openEditor(pe0);
+  }
   if(e.pointerType === "touch"){
     delete touchPts[e.pointerId];
     if(Object.keys(touchPts).length < 2) pinch = null;
@@ -4213,6 +4221,8 @@ async function applyImport(data){
    15. 工具栏与界面
    ============================================================ */
 var ICONS = {
+  front: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round"><rect x="4" y="9.6" width="10.4" height="10.4" rx="1.6" stroke-width="1.4" opacity=".55"></rect><rect x="9.6" y="4" width="10.4" height="10.4" rx="1.6" fill="currentColor" stroke="none"></rect></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round"><rect x="4" y="9.6" width="10.4" height="10.4" rx="1.6" fill="currentColor" stroke="none"></rect><rect x="9.6" y="4" width="10.4" height="10.4" rx="1.6" stroke-width="1.4" opacity=".55"></rect></svg>',
   select: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round"><path d="M5 3.5 18.5 11 12 12.8 9.2 19.5z"></path></svg>',
   hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8.5 11V5.6a1.5 1.5 0 0 1 3 0V10"></path><path d="M11.5 10V4.2a1.5 1.5 0 0 1 3 0V10"></path><path d="M14.5 10.5V5.6a1.5 1.5 0 0 1 3 0v6.4"></path><path d="M8.5 11.5v-1a1.5 1.5 0 0 0-3 0v4.2c0 3.4 2.3 6.3 6 6.3h1.4c2.6 0 4.6-1.6 5.3-4.1l1-3.6"></path></svg>',
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v10l-5 5H4z"></path><path d="M20 15h-5v5"></path></svg>',
@@ -4751,7 +4761,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-21";
+var APP_VERSION = "2026.11.08-22";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -4781,6 +4791,7 @@ var RADIAL_BASE = "";
 var radialOpen = false;
 var touchTimer = null;
 var touchOrigin = null;
+var pendingEditId = null;
 var touchPts = {};
 var pinch = null;
 var selBeforeTouch = null;
@@ -4801,6 +4812,8 @@ var RAD_OUT = [
   { act:"action:link", icon:ICONS.link,   label:"链接卡" },
   { act:"tool:pencil", icon:ICONS.pencil, label:"画笔" },
   { act:"action:emoji", icon:ICONS.emoji, label:"表情" },
+  { act:"action:front", icon:ICONS.front, label:"置顶", needsSel:true },
+  { act:"action:back", icon:ICONS.back, label:"置底", needsSel:true },
   { act:"action:delete", icon:ICONS.trash, label:"删除", needsSel:true }
 ];
 var RAD_IN = [
@@ -4893,6 +4906,16 @@ function executeRadial(act){
   }
   if(act === "action:link"){ askLink(); return; }
   if(act === "action:emoji"){ openEmojiPop(radialWorld); return; }
+  if(act === "action:front" || act === "action:back"){
+    if(!state.selection.length){ toast("先选中要调整的内容"); return; }
+    var selEls = state.selection.map(function(id0){ return elById(id0); }).filter(Boolean);
+    if(!selEls.length) return;
+    var rest = board().elements.filter(function(el0){ return state.selection.indexOf(el0.id) < 0; });
+    board().elements = act === "action:front" ? rest.concat(selEls) : selEls.concat(rest);
+    historyPush(); requestRender(); syncUI(); scheduleSave();
+    toast(act === "action:front" ? "已置顶" : "已置底");
+    return;
+  }
   if(act === "action:delete"){
     if(!state.selection.length){ toast("先选中要删除的内容"); return; }
     deleteSelection(); toast("已删除");
@@ -5330,6 +5353,11 @@ var I18N_EN = {
   "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "置顶": "Bring to front",
+  "置底": "Send to back",
+  "已置顶": "Moved to front",
+  "已置底": "Moved to back",
+  "先选中要调整的内容": "Select something first",
   "重新裁剪": "Re-crop",
   "取消": "Cancel",
   "应用": "Apply",
