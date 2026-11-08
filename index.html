@@ -2365,8 +2365,8 @@ function autoFitCard(el){
   if(!el.bw || !el.bh){ el.bw = el.w; el.bh = el.h; }   /* 记住基准尺寸，放大时按它等比变大 */
   /* 只有"比当初更大"才跟着放大；缩小时不缩字，装不下才由下面的收缩兜底 */
   var grow = Math.max(1, Math.min(el.w / el.bw, el.h / el.bh));
-  var pad = 15;
-  var maxW = Math.max(24, el.w - pad * 2);
+  var pad = el.type === "note" ? 16 : 2;   /* 与 drawTextBlock 的内边距保持一致 */
+  var maxW = Math.max(24, el.w - pad * 2 - 2);   /* 留 2px 余量，避免量得的宽度刚好卡边界 */
   var maxH = Math.max(20, el.h - pad * 2);
   var size = Math.max(8, Math.min(120, el.font0 * (grow > 1.02 ? grow : 1)));
   var guard = 0;
@@ -2408,7 +2408,7 @@ function drawTextBlock(c, el, box){
   }
   for(var i = 0; i < lines.length; i++){
     var y = startY + i * lh;
-    if(y > box.y + box.h + lh) break;
+    if(y + lh * 0.9 > box.y + box.h) break;   /* 整行放不下就不画，绝不出框 */
     c.fillText(lines[i], box.x + pad, y);
   }
 }
@@ -5076,7 +5076,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-30";
+var APP_VERSION = "2026.11.08-31";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
