@@ -1536,7 +1536,7 @@ details.man-adv .inner{padding:0 12px 12px}
     <details class="man-adv">
       <summary data-zh="进阶：聚焦演示（Walkthrough）" data-en="Advanced: focus walkthrough">进阶：聚焦演示（Walkthrough）</summary>
       <div class="inner">
-<div class="man-step"><span class="n">1</span><div class="t" data-zh="先选中一个容器，标题旁的下拉里挑一个序号：<b>已用过的数字不会重复出现</b>。" data-en="Select a frame, then pick a number from the list beside its title — <b>used numbers never repeat</b>.">先选中一个容器，标题旁的下拉里挑一个序号：<b>已用过的数字不会重复出现</b>。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="点右下角<b>眼睛图标</b>进入聚焦：侧栏收起，容器按 90% 占满屏幕，用前后按钮翻页，最后一页「下一张」变灰。" data-en="Tap the <b>eye icon</b> bottom-right to focus: the sidebar hides, the frame fills 90% of the screen, and “next” greys out on the last page.">点右下角<b>眼睛图标</b>进入聚焦：侧栏收起，容器按 90% 占满屏幕，用前后按钮翻页，最后一页「下一张」变灰。</div></div>        <div class="field"><span class="field-k" data-zh="已排序" data-en="Ordered">已排序</span><span class="field-v" id="walkCount">0 个</span></div>
+<div class="man-step"><span class="n">1</span><div class="t" data-zh="先选中一个容器，标题旁的下拉里挑一个序号：<b>已用过的数字不会重复出现</b>。" data-en="Select a frame, then pick a number from the list beside its title — <b>used numbers never repeat</b>.">先选中一个容器，标题旁的下拉里挑一个序号：<b>已用过的数字不会重复出现</b>。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="点右下角<b>眼睛图标</b>进入聚焦：侧栏收起，容器按 90% 占满屏幕，用前后按钮翻页，也可以直接按键盘 <b>← / →</b>；最后一页「下一张」变灰。" data-en="Tap the <b>eye icon</b> bottom-right to focus: the sidebar hides, the frame fills 90% of the screen, and “next” greys out on the last page. The <b>← / →</b> keys also flip pages.">点右下角<b>眼睛图标</b>进入聚焦：侧栏收起，容器按 90% 占满屏幕，用前后按钮翻页，最后一页「下一张」变灰。</div></div>        <div class="field"><span class="field-k" data-zh="已排序" data-en="Ordered">已排序</span><span class="field-v" id="walkCount">0 个</span></div>
         <div class="man-actions">
           <button class="btn primary" id="btnWalkPlay" type="button" data-zh="进入聚焦演示" data-en="Start walkthrough">进入聚焦演示</button>
           <button class="btn" id="btnWalkClear" type="button" data-zh="清空序号" data-en="Clear numbers">清空序号</button>
@@ -1918,13 +1918,17 @@ function historyPush(){
   if(!b) return;
   if(history.boardId !== state.activeId){ historyReset(); return; }
   var snap = JSON.stringify(b.elements);
-  if(history.stack[history.index] === snap) return;
+  var prev = history.stack[history.index];
+  if(prev === snap) return;
   history.stack = history.stack.slice(0, history.index + 1);
   history.stack.push(snap);
   if(history.stack.length > 60){ history.stack.shift(); }
   history.index = history.stack.length - 1;
   scheduleSave();
-  playSfx();
+  /* 只有新增或删除元素时才响；移动/缩放/改色/改字不响 */
+  var nPrev = -1, nNow = b.elements.length;
+  try{ nPrev = prev ? JSON.parse(prev).length : 0; }catch(e){ nPrev = -1; }
+  if(nPrev !== nNow) playSfx();
 }
 function undo(){
   if(history.boardId !== state.activeId) return;
@@ -3538,6 +3542,11 @@ window.addEventListener("keydown", function(e){
     pasteClipboard();
     return;
   }
+  if(state.focus && (e.key === "ArrowLeft" || e.key === "ArrowRight")){
+    e.preventDefault();
+    gotoWalk(state.focusIdx + (e.key === "ArrowRight" ? 1 : -1));
+    return;
+  }
   if(e.key === "Delete" || e.key === "Backspace"){
     if(!state.selection.length) return;
     e.preventDefault();
@@ -4517,7 +4526,7 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-18b";
+var APP_VERSION = "2026.11.08-18c";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -4597,6 +4606,7 @@ function buildRadial(){
   });
   box.innerHTML = html + box.innerHTML;
 }
+var radialArm = null;
 var radialLastAct = null;
 try{ radialLastAct = localStorage.getItem("pb-radial") || null; }catch(e){}
 var RAD_ARMED = ["tool:", "frame:", "action:link", "action:emoji"];
@@ -4615,22 +4625,23 @@ function openRadial(sp, local){
   $("#rdCap").textContent = "";
   var slots = box.querySelectorAll(".rd-slot");
   var hit = null;
+  radialArm = null;
   for(var i2 = 0; i2 < slots.length; i2++){
     var a = slots[i2].getAttribute("data-act");
-    var on = (a === "tool:" + state.tool);
-    if(!on && radialLastAct && a === radialLastAct) on = true;
+    var armable = !!(radialLastAct && RAD_ARMED.some(function(pre){ return radialLastAct.indexOf(pre) === 0; }));
+    var armed = !!(armable && a === radialLastAct);
+    var on = armable ? armed : (a === "tool:" + state.tool);
     slots[i2].classList.toggle("is-on", on);
-    if(on && a === radialLastAct) hit = slots[i2];
+    if(armed) hit = slots[i2];
   }
-  /* 上次用过的命令默认停在这里：非破坏性命令直接把指针落上去，松手即再执行一次 */
-  if(hit && RAD_ARMED.some(function(pre){ return hit.getAttribute("data-act").indexOf(pre) === 0; })){
-    radialSetHover(hit);
-  }
+  /* 上次用过的命令默认停在这里：指针直接落在它上面，松手即再执行一次 */
+  if(hit){ radialArm = hit; radialSetHover(hit); }
 }
 function closeRadial(){
   $("#radial").classList.remove("on");
   radialOpen = false;
   radialHover = null;
+  radialArm = null;
   var cap = $("#rdCap");
   if(cap){ cap.classList.remove("is-hot"); cap.textContent = ""; }
   var slots = document.querySelectorAll("#radial .rd-slot");
@@ -4689,7 +4700,10 @@ function radialPick(x, y){
   });
   box.addEventListener("pointermove", function(e){
     if(!radialOpen) return;
-    radialSetHover(e.target.closest(".rd-slot"));
+    var slot = e.target.closest(".rd-slot");
+    if(!slot && radialArm){ radialSetHover(radialArm); return; }
+    if(slot && slot === radialHover) return;
+    radialSetHover(slot);
   });
 })();
 window.addEventListener("pointerup", function(e){
