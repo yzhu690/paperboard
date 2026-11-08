@@ -772,6 +772,16 @@ body{
 .snap-select{flex:1;height:30px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:11.5px;padding:0 6px}
 .btn-snap{height:30px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:11.5px;cursor:pointer}
 .btn-snap:disabled{opacity:.45;cursor:default}
+/* ---- 历史版本预览 ---- */
+.preview-bar{position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:19;display:none;align-items:center;gap:10px;
+  background:#151a21;color:#fff;border-radius:999px;padding:8px 10px 8px 14px;box-shadow:0 10px 26px -10px rgba(21,26,33,.5);font-size:12.5px}
+.preview-bar.is-on{display:flex}
+.preview-bar .pv-dot{width:7px;height:7px;border-radius:50%;background:#d8e44c}
+.preview-bar .pv-txt{white-space:nowrap}
+.preview-bar button{height:26px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.32);background:transparent;color:#fff;font-size:12px;cursor:pointer}
+.preview-bar button.pv-commit{background:#d8e44c;border-color:#d8e44c;color:#151a21;font-weight:600}
+#stage.previewing{box-shadow:inset 0 0 0 3px #d8e44c}
+#stage.previewing #board{opacity:.98}
 /* ---- 重新裁剪 ---- */
 .crop-pop{position:fixed;inset:0;background:rgba(21,26,33,.55);z-index:96;display:none;align-items:center;justify-content:center;padding:20px}
 .crop-pop.on{display:flex}
@@ -1340,6 +1350,12 @@ details.man-adv .inner{padding:0 12px 12px}
   <div id="body-mask"></div>
   <main id="stage">
     <canvas id="board"></canvas>
+    <div id="previewBar" class="preview-bar">
+      <span class="pv-dot"></span>
+      <span class="pv-txt" id="pvText">预览</span>
+      <button type="button" class="pv-commit" id="pvCommit" data-zh="恢复这一版" data-en="Restore this">恢复这一版</button>
+      <button type="button" id="pvBack" data-zh="回到当前" data-en="Back to now">回到当前</button>
+    </div>
     <button id="drawerToggle" type="button" title="画板抽屉">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
@@ -1842,6 +1858,7 @@ var state = {
   walkSetting: false,
   walking: false,
   walkIdx: 0,
+  preview: null,
   settings: { conn: { start:"none", end:"arrow", stroke:"#1F2125", width:1.8, dash:"solid" } }
 };
 
@@ -2038,6 +2055,7 @@ function payload(){
 }
 
 function scheduleSave(){
+  if(state.preview) return;   /* 预览历史版本时不写盘，避免把旧内容存成最新 */
   var b = board();
   if(b) b.updatedAt = Date.now();
   if(saveTimer) clearTimeout(saveTimer);
@@ -2352,7 +2370,7 @@ function autoFitCard(el){
   var maxH = Math.max(20, el.h - pad * 2);
   var size = Math.max(8, Math.min(120, el.font0 * (grow > 1.02 ? grow : 1)));
   var guard = 0;
-  while(size > 8 && guard < 120){
+  while(size > 8 && guard < 400){
     measureCtx.font = "400 " + size + "px 'Noto Sans SC','PingFang SC',sans-serif";
     var lines = wrapLines(measureCtx, el.text || "", maxW);
     var need = lines.length * size * 1.4;
@@ -2382,8 +2400,14 @@ function drawTextBlock(c, el, box){
   var pad = el.type === "note" ? 16 : 2;
   var lines = wrapLines(c, el.text || "", Math.max(10, box.w - pad * 2));
   var lh = fs * 1.4;
+  var startY = box.y + pad;
+  if(el.type === "note"){
+    /* 便签文字默认垂直居中；装不下时才从顶部排 */
+    var spare = (box.h - pad * 2) - lines.length * lh;
+    if(spare > 0) startY = box.y + pad + spare / 2;
+  }
   for(var i = 0; i < lines.length; i++){
-    var y = box.y + pad + i * lh;
+    var y = startY + i * lh;
     if(y > box.y + box.h + lh) break;
     c.fillText(lines[i], box.x + pad, y);
   }
@@ -2931,10 +2955,12 @@ function closeEditor(commit){
    9. 元素创建
    ============================================================ */
 function mkNote(wx, wy){
-  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, font0:17, bw:180, bh:180, text:"" };
+  var f0 = Math.max(14, Math.min(140, Math.round(180 * 0.8)));
+  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:f0, font0:f0, bw:180, bh:180, text:"" };
 }
 function mkWhiteNote(wx, wy){
-  return { id:uid(), type:"note", x:wx - 120, y:wy - 60, w:240, h:120, fill:"#ffffff", fontSize:16, font0:16, bw:240, bh:120, text:"" };
+  var f0 = Math.max(14, Math.min(140, Math.round(120 * 0.8)));
+  return { id:uid(), type:"note", x:wx - 120, y:wy - 60, w:240, h:120, fill:"#ffffff", fontSize:f0, font0:f0, bw:240, bh:120, text:"" };
 }
 function mkBoardRef(targetId, wx, wy){
   return { id:uid(), type:"boardref", target:targetId, x:wx - 130, y:wy - 80, w:260, h:160 };
@@ -3284,6 +3310,10 @@ function isGrubHandle(sp){
 }
 
 cv.addEventListener("pointerdown", function(e){
+  if(state.preview){
+    if(e.button === 2) e.preventDefault();
+    return;   /* 预览态只读：不选中、不拖拽，滚轮缩放仍可用 */
+  }
   var sp = pointer(e);
   downTool = state.tool;
   var wp = toWorld(sp.x, sp.y);
@@ -3761,6 +3791,10 @@ cv.addEventListener("wheel", function(e){
    11. 键盘
    ============================================================ */
 window.addEventListener("keydown", function(e){
+  if(state.preview){
+    if(e.key === "Escape"){ previewCurrent(); e.preventDefault(); }
+    return;   /* 预览态屏蔽所有编辑快捷键 */
+  }
   var tag = (e.target.tagName || "").toLowerCase();
   if(tag === "textarea" || tag === "input"){
     if(e.key === "Escape"){ closeEditor(true); e.preventDefault(); }
@@ -4806,6 +4840,7 @@ function snapSig(){
   }).join("|");
 }
 function takeSnapshot(force){
+  if(state.preview) return;
   var now = Date.now();
   var slot = Math.floor(now / SNAP_EVERY);          /* 以 15 分钟为格，一格只留一份 */
   var payload = { at: now, slot: slot, sig: snapSig(), boards: state.boards, activeId: state.activeId };
@@ -4841,12 +4876,17 @@ function fillSnapSelect(list){
   var sel = $("#snapSelect");
   if(!sel) return;
   list = list || [];
+  var keep = state.preview ? String(state.preview.at) : "cur";
   sel.innerHTML = "";
+  var oc = document.createElement("option");
+  oc.value = "cur"; oc.textContent = tr("当前版本");
+  sel.appendChild(oc);
   if(!list.length){
     var o0 = document.createElement("option");
     o0.value = ""; o0.textContent = tr("暂无历史版本");
     sel.appendChild(o0);
-    var btn0 = $("#btnSnapRestore"); if(btn0) btn0.disabled = true;
+    var btn0 = $("#btnSnapRestore"); if(btn0) btn0.disabled = !state.preview;
+    sel.value = keep; if(sel.value !== keep) sel.value = "cur";
     return;
   }
   for(var i = list.length - 1; i >= 0; i--){
@@ -4855,7 +4895,9 @@ function fillSnapSelect(list){
     o.textContent = snapLabel(list[i].at);
     sel.appendChild(o);
   }
-  var btn = $("#btnSnapRestore"); if(btn) btn.disabled = false;
+  var btn = $("#btnSnapRestore"); if(btn) btn.disabled = !state.preview;
+  sel.value = keep;
+  if(sel.value !== keep) sel.value = "cur";
 }
 function restoreSnapshot(at){
   readSnaps(function(list){
@@ -4877,6 +4919,75 @@ function restoreSnapshot(at){
     });
   });
 }
+
+function pvDepthBoards(){
+  var copy = JSON.parse(JSON.stringify(state.preview.snapBoards));
+  return copy;
+}
+function previewSnapshot(at){
+  readSnaps(function(list){
+    var item = list.filter(function(x){ return String(x.at) === String(at); })[0];
+    if(!item){ toast("这个历史版本已经不在了"); return; }
+    if(!state.preview){
+      state.preview = { boards: state.boards, activeId: state.activeId, at: item.at };
+    }
+    state.preview.at = item.at;
+    state.preview.snapBoards = item.boards;
+    var copy = JSON.parse(JSON.stringify(item.boards));
+    state.boards = copy;
+    state.activeId = (item.activeId && copy.some(function(b){ return b.id === item.activeId; }))
+      ? item.activeId : (copy[0] ? copy[0].id : null);
+    state.selection = [];
+    if(state.editing){ try{ editor.blur(); }catch(err){} state.editing = null; editingId = null; editor.style.display = "none"; }
+    $("#stage").classList.add("previewing");
+    $("#pvText").textContent = tr("预览中：") + snapLabel(item.at);
+    $("#previewBar").classList.add("is-on");
+    var btn = $("#btnSnapRestore"); if(btn) btn.disabled = false;
+    renderBoardList(); requestRender(); syncUI();
+    toast("正在预览 " + snapLabel(item.at) + " 的版本，画布只读");
+  });
+}
+function previewCurrent(silent){
+  if(!state.preview) return;
+  var p = state.preview;
+  state.preview = null;
+  state.boards = p.boards;
+  state.activeId = p.activeId;
+  state.selection = [];
+  $("#stage").classList.remove("previewing");
+  $("#previewBar").classList.remove("is-on");
+  var sel = $("#snapSelect"); if(sel) sel.value = "cur";
+  var btn = $("#btnSnapRestore"); if(btn) btn.disabled = true;
+  renderBoardList(); requestRender(); syncUI();
+  if(!silent) toast("已回到当前版本");
+}
+function commitPreview(){
+  if(!state.preview){ toast("先在上面选一个历史版本预览"); return; }
+  var at = state.preview.at;
+  readSnaps(function(list){
+    var item = list.filter(function(x){ return String(x.at) === String(at); })[0];
+    if(!item){ toast("这个历史版本已经不在了"); return; }
+    askConfirm("恢复 " + snapLabel(at) + " 的内容？", "当前内容会被替换，建议先导出一份备份。", "恢复").then(function(ok){
+      if(!ok) return;
+      var keep = { boards: state.preview.boards, activeId: state.preview.activeId };
+      idbSet("docBak", keep).catch(function(){});
+      state.preview = null;
+      $("#stage").classList.remove("previewing");
+      $("#previewBar").classList.remove("is-on");
+      state.activeId = (item.activeId && state.boards.some(function(b){ return b.id === item.activeId; }))
+        ? item.activeId : state.boards[0].id;
+      history.stack = []; history.index = -1; history.boardId = null;
+      renderBoardList();
+      switchBoard(state.activeId);
+      historyReset();
+      requestRender(); syncUI(); scheduleSave();
+      var sel = $("#snapSelect"); if(sel) sel.value = "cur";
+      var btn = $("#btnSnapRestore"); if(btn) btn.disabled = true;
+      toast("已恢复到 " + snapLabel(at));
+    });
+  });
+}
+
 setInterval(function(){ takeSnapshot(false); }, SNAP_EVERY);
 
 /* ---------------- 重新裁剪 ---------------- */
@@ -4965,7 +5076,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-29";
+var APP_VERSION = "2026.11.08-30";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5534,6 +5645,23 @@ $("#keysBtn").addEventListener("click", function(){
   keys.classList.toggle("on", keysOpen);
 });
 
+editor.addEventListener("input", function(){
+  var el = editingId ? elById(editingId) : null;
+  if(!el || el.type !== "note" && el.type !== "card") return;
+  el.text = editor.value;
+  var before = el.fontSize;
+  autoFitCard(el);
+  if(el.fontSize !== before){
+    editor.style.fontSize = (el.fontSize * cam.zoom) + "px";
+    var box = bboxEl(el);
+    var p = toScreen(box.x, box.y);
+    editor.style.left = p.x + "px";
+    editor.style.top = p.y + "px";
+    editor.style.width = (box.w * cam.zoom) + "px";
+    editor.style.height = (box.h * cam.zoom) + "px";
+    requestRender();
+  }
+});
 editor.addEventListener("blur", function(){
   if(Date.now() - editorOpenedAt < 220) return;
   closeEditor(true);
@@ -5580,6 +5708,12 @@ var I18N_EN = {
   "用小图": "Use the small one",
   "已使用小图 ": "Using the small one ",
   "保留原图 ": "Kept the original ",
+  "当前版本": "Current",
+  "预览中：": "Previewing: ",
+  "正在预览 ": "Previewing ",
+  " 的版本，画布只读": " (read-only)",
+  "已回到当前版本": "Back to the current version",
+  "先在上面选一个历史版本预览": "Pick a past version above first",
   "今天": "Today",
   "暂无历史版本": "No versions yet",
   "恢复": "Restore",
@@ -6487,11 +6621,14 @@ function boot(){
   if(cloudLinked()){ cloudPaint(); cloudStartPolling(); }
   try{ wireSyncUI(); }catch(err){}
   var snapBtn = $("#btnSnapRestore");
-  if(snapBtn) snapBtn.addEventListener("click", function(){
-    var sel = $("#snapSelect");
-    if(!sel || !sel.value){ toast("还没有可恢复的历史版本"); return; }
-    restoreSnapshot(sel.value);
+  if(snapBtn) snapBtn.addEventListener("click", function(){ commitPreview(); });
+  var snapSel = $("#snapSelect");
+  if(snapSel) snapSel.addEventListener("change", function(){
+    if(!snapSel.value || snapSel.value === "cur"){ previewCurrent(); return; }
+    previewSnapshot(snapSel.value);
   });
+  var pvBack = $("#pvBack"); if(pvBack) pvBack.addEventListener("click", function(){ previewCurrent(); });
+  var pvCommit = $("#pvCommit"); if(pvCommit) pvCommit.addEventListener("click", function(){ commitPreview(); });
   readSnaps(function(list){ fillSnapSelect(list); });
   setTimeout(function(){ takeSnapshot(true); }, 1200);
   var checkBtn = $("#btnCheckUpdate");
