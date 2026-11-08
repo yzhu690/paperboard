@@ -4396,6 +4396,17 @@ function duplicateWithLinks(ids, dx, dy){
     if(map[el.to]) c.to = map[el.to];
     copies.push(c);
   });
+  /* 容器：已有序号的，副本接在最大序号之后 */
+  var seqMax = 0;
+  board().elements.forEach(function(e){
+    if(e.type === "frame" && e.seq && e.seq > seqMax) seqMax = e.seq;
+  });
+  copies.forEach(function(c){
+    if(c.type === "frame" && c.seq){
+      seqMax += 1;
+      c.seq = seqMax;
+    }
+  });
   copies.forEach(function(c){ board().elements.push(c); });
   state.selection = copies.filter(function(c){ return c.type !== "connector"; }).map(function(c){ return c.id; });
   return copies;
