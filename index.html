@@ -4794,10 +4794,28 @@ var SNAP_MAX = 4, SNAP_EVERY = 15 * 60 * 1000;
 function readSnaps(done){
   idbGet("snaps").then(function(list){ done(Array.isArray(list) ? list : []); }).catch(function(){ done([]); });
 }
+function snapSig(){
+  return state.boards.map(function(b){
+    return b.id + ":" + (b.updatedAt || 0) + ":" + (b.elements ? b.elements.length : 0);
+  }).join("|");
+}
 function takeSnapshot(force){
-  var payload = { at: Date.now(), boards: state.boards, activeId: state.activeId };
+  var now = Date.now();
+  var slot = Math.floor(now / SNAP_EVERY);          /* 以 15 分钟为格，一格只留一份 */
+  var payload = { at: now, slot: slot, sig: snapSig(), boards: state.boards, activeId: state.activeId };
   readSnaps(function(list){
-    if(!force && list.length && Date.now() - (list[list.length - 1].at || 0) < SNAP_EVERY) return;
+    var last = list[list.length - 1];
+    if(last){
+      if(last.slot === slot){                        /* 同一格里：覆盖最新那份，不新增 */
+        if(last.sig === payload.sig){ fillSnapSelect(list); return; }
+        list[list.length - 1] = payload;
+        idbSet("snaps", list).catch(function(){});
+        fillSnapSelect(list);
+        return;
+      }
+      if(!force && now - (last.at || 0) < SNAP_EVERY){ fillSnapSelect(list); return; }
+      if(last.sig === payload.sig){ fillSnapSelect(list); return; }
+    }
     list.push(payload);
     while(list.length > SNAP_MAX) list.shift();     /* 超过 4 份就清掉最早的一份 */
     idbSet("snaps", list).catch(function(){});
@@ -4941,7 +4959,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-26";
+var APP_VERSION = "2026.11.08-27";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
