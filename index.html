@@ -3079,6 +3079,68 @@ function mindSibling(id){
 }
 
 /* ---- 卡片图片 / 链接卡 ---- */
+
+/* ---- 插图前的体积优化：目标单张 ≤200KB ---- */
+var IMG_LIMIT = 200 * 1024;
+function dataUrlBytes(u){
+  if(!u) return 0;
+  var i = u.indexOf(",");
+  if(u.indexOf(";base64,") < 0) return u.length;
+  return Math.round((u.length - i - 1) * 0.75);
+}
+function kbSize(n){ return Math.max(1, Math.round(n / 1024)) + "KB"; }
+function loadImgAsync(u){
+  return new Promise(function(res){
+    var im = new Image();
+    im.onload = function(){ res(im); };
+    im.onerror = function(){ res(null); };
+    im.src = u;
+  });
+}
+function encodeScaled(im, maxSide, q){
+  var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
+  var k = Math.min(1, maxSide / Math.max(w, h));
+  var c = document.createElement("canvas");
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  var x = c.getContext("2d");
+  x.fillStyle = "#ffffff";
+  x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", q);
+}
+function optimizeImage(dataUrl){
+  var before = dataUrlBytes(dataUrl);
+  if(before <= IMG_LIMIT) return Promise.resolve({ url:dataUrl, before:before, after:before, small:false });
+  return loadImgAsync(dataUrl).then(function(im){
+    if(!im) return { url:dataUrl, before:before, after:before, small:false };
+    var sides = [1600, 1400, 1200, 1000], quals = [0.85, 0.75, 0.65, 0.55];
+    var best = null;
+    for(var i = 0; i < sides.length; i++){
+      for(var j = 0; j < quals.length; j++){
+        var u = encodeScaled(im, sides[i], quals[j]);
+        var b = dataUrlBytes(u);
+        if(!best || b < best.bytes) best = { url:u, bytes:b };
+        if(b <= IMG_LIMIT) return { url:u, before:before, after:b, small:true };
+      }
+    }
+    return { url:dataUrl, before:before, after:before, small:false, over:true, smallUrl:best.url, smallBytes:best.bytes };
+  });
+}
+function pickImageData(dataUrl){
+  return optimizeImage(dataUrl).then(function(r){
+    if(!r.over){
+      if(r.small) toast("图片已压缩 " + kbSize(r.before) + " → " + kbSize(r.after));
+      return r.url;
+    }
+    return askConfirm("这张图压不到 200KB 以内",
+      "小图：" + kbSize(r.smallBytes) + "（压到最小，清晰度一般）；原图：" + kbSize(r.before) + "（更清晰，体积大）。",
+      "用小图").then(function(useSmall){
+        toast(useSmall ? ("已使用小图 " + kbSize(r.smallBytes)) : ("保留原图 " + kbSize(r.before)));
+        return useSmall ? r.smallUrl : dataUrl;
+      });
+  });
+}
+
 function setCardImage(el, dataUrl){
   el.image = dataUrl;
   if(el.w < 180) el.w = 240;
@@ -3842,7 +3904,7 @@ function pickImage(wx, wy){
     if(!fs.length) return;
     if(target){
       var fr = new FileReader();
-      fr.onload = function(){ setCardImage(target, fr.result); };
+      fr.onload = function(){ pickImageData(fr.result).then(function(d){ setCardImage(target, d); }); };
       fr.readAsDataURL(fs[0]);
       return;
     }
@@ -3855,16 +3917,18 @@ function pickImage(wx, wy){
 function readImage(file, wx, wy){
   var reader = new FileReader();
   reader.onload = function(){
-    var img = new Image();
-    img.onload = function(){
-      var maxW = 520;
-      var w = img.width, h = img.height;
-      if(w > maxW){ h = h * (maxW / w); w = maxW; }
-      var el = { id:uid(), type:"image", x:wx - w / 2, y:wy - h / 2, w:w, h:h, src:reader.result };
-      imgCache.set(reader.result, img);
-      addElement(el, true);
-    };
-    img.src = reader.result;
+    pickImageData(reader.result).then(function(src){
+      var img = new Image();
+      img.onload = function(){
+        var maxW = 520;
+        var w = img.width, h = img.height;
+        if(w > maxW){ h = h * (maxW / w); w = maxW; }
+        var el = { id:uid(), type:"image", x:wx - w / 2, y:wy - h / 2, w:w, h:h, src:src };
+        imgCache.set(src, img);
+        addElement(el, true);
+      };
+      img.src = src;
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -3877,6 +3941,7 @@ function readImages(files, wx, wy){
   list.forEach(function(file, idx){
     var reader = new FileReader();
     reader.onload = function(){
+      pickImageData(reader.result).then(function(src){
       var img = new Image();
       img.onload = function(){
         var box = 268;
@@ -3886,8 +3951,8 @@ function readImages(files, wx, wy){
         var col = idx % cols, row = Math.floor(idx / cols);
         var cx = wx + col * (cell + gap) - ((cols - 1) * (cell + gap)) / 2;
         var cy = wy + row * (cell + gap) + 40;
-        var el = { id:uid(), type:"image", x: cx - w / 2, y: cy - h / 2, w:w, h:h, src: reader.result };
-        imgCache.set(reader.result, img);
+        var el = { id:uid(), type:"image", x: cx - w / 2, y: cy - h / 2, w:w, h:h, src: src };
+        imgCache.set(src, img);
         board().elements.push(el);
         added.push(el.id);
         if(added.length === list.length){
@@ -3897,7 +3962,8 @@ function readImages(files, wx, wy){
           toast("已导入 " + added.length + " 张图片");
         }
       };
-      img.src = reader.result;
+      img.src = src;
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -4350,12 +4416,14 @@ window.addEventListener("paste", function(e){
       var target = state.selection.length === 1 ? elById(state.selection[0]) : null;
       var fr = new FileReader();
       fr.onload = function(){
-        if(target && (target.type === "note" || target.type === "card")) setCardImage(target, fr.result);
-        else {
-          var v = viewSize();
-          var img = { id:uid(), type:"image", x:cam.x + v.w / 2 / cam.zoom - 160, y:cam.y + v.h / 2 / cam.zoom - 110, w:320, h:220, src:fr.result };
-          addElement(img, true);
-        }
+        pickImageData(fr.result).then(function(src){
+          if(target && (target.type === "note" || target.type === "card")) setCardImage(target, src);
+          else {
+            var v = viewSize();
+            var img = { id:uid(), type:"image", x:cam.x + v.w / 2 / cam.zoom - 160, y:cam.y + v.h / 2 / cam.zoom - 110, w:320, h:220, src:src };
+            addElement(img, true);
+          }
+        });
       };
       fr.readAsDataURL(f);
       return;
@@ -4843,7 +4911,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-24";
+var APP_VERSION = "2026.11.08-25";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5451,6 +5519,11 @@ var I18N_EN = {
   "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "图片已压缩 ": "Image compressed ",
+  "这张图压不到 200KB 以内": "This image can\'t get under 200KB",
+  "用小图": "Use the small one",
+  "已使用小图 ": "Using the small one ",
+  "保留原图 ": "Kept the original ",
   "今天": "Today",
   "暂无历史版本": "No versions yet",
   "恢复": "Restore",
