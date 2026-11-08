@@ -771,13 +771,17 @@ body{
   display:none;
   position:fixed;
   right:22px;
-  bottom:60px;
-  width:300px;
+  bottom:72px;
+  width:min(340px, calc(100vw - 32px));
   background:var(--paper-2);
   border-radius:8px;
   box-shadow:0 2px 8px rgba(21,26,33,.14), 0 28px 56px -30px rgba(21,26,33,.55);
   padding:14px 16px;
   z-index:10;
+  max-height:calc(100vh - 150px);
+  overflow:auto;
+  scrollbar-width:thin;
+  z-index:18;
 }
 #keys.on{display:block}
 .kl{
@@ -1622,6 +1626,23 @@ create policy "own docs" on pb_docs
   <div class="kl"><kbd>Tab</kbd><span>选中卡片 → 生成子节点</span></div>
   <div class="kl"><kbd>Enter</kbd><span>选中卡片 → 生成同级</span></div>
   <div class="kl"><kbd>Ctrl V</kbd><span>粘贴链接 → 链接卡；粘贴图片 → 贴图</span></div>
+
+  <div class="section-k" style="margin:12px 0 6px">鼠标 / 触屏</div>
+  <div class="kl"><kbd>右键</kbd><span>按住右键滑动 → 圆环菜单，松手就执行</span></div>
+  <div class="kl"><kbd>长按</kbd><span>触屏长按 350ms → 同一个圆环，点一格就行</span></div>
+  <div class="kl"><kbd>轻点</kbd><span>触屏轻点＝选中；单指拖＝框选</span></div>
+  <div class="kl"><kbd>滚轮</kbd><span>平移画布；Ctrl + 滚轮＝缩放</span></div>
+  <div class="kl"><kbd>抓手</kbd><span>手机上移动画布：圆环里选「抓手」再拖</span></div>
+  <div class="kl"><kbd>拖中点</kbd><span>选中连线后拖中间那个点 → 调弯曲度</span></div>
+
+  <div class="section-k" style="margin:12px 0 6px">聚焦演示</div>
+  <div class="kl"><kbd>眼睛</kbd><span>右下角眼睛图标 / 说明书里「开始演示」→ 进入</span></div>
+  <div class="kl"><kbd>← →</kbd><span>上一页 / 下一页</span></div>
+  <div class="kl"><kbd>Esc</kbd><span>退出聚焦</span></div>
+
+  <div class="section-k" style="margin:12px 0 6px">音效</div>
+  <div class="kl"><kbd>喇叭</kbd><span>右上角按钮开 / 关，默认开着</span></div>
+  <div class="kl"><kbd>响</kbd><span>只在新增、删除时响；移动改色不响</span></div>
 </div>
 
 <div id="login">
@@ -4526,7 +4547,7 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-18c";
+var APP_VERSION = "2026.11.08-19";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5093,6 +5114,29 @@ var LANG = (function(){
   try{ return localStorage.getItem("pb-lang") || "zh"; }catch(e){ return "zh"; }
 })();
 var I18N_EN = {
+  "鼠标 / 触屏": "Mouse / touch",
+  "右键": "Right-click",
+  "按住右键滑动 → 圆环菜单，松手就执行": "Hold the right button and slide → wheel opens, release to run it",
+  "长按": "Long-press",
+  "触屏长按 350ms → 同一个圆环，点一格就行": "Long-press 350ms on touch → the same wheel, tap one slot",
+  "轻点": "Tap",
+  "触屏轻点＝选中；单指拖＝框选": "Tap to select; drag with one finger to lasso",
+  "滚轮": "Wheel",
+  "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
+  "抓手": "Hand tool",
+  "手机上移动画布：圆环里选「抓手」再拖": "Moving the canvas on a phone: pick the hand tool in the wheel, then drag",
+  "拖中点": "Drag midpoint",
+  "选中连线后拖中间那个点 → 调弯曲度": "Select a line, then drag its midpoint to bend it",
+  "聚焦演示": "Focus walkthrough",
+  "眼睛": "Eye",
+  "右下角眼睛图标 / 说明书里「开始演示」→ 进入": "Eye icon bottom-right, or “start” in the manual → enter",
+  "← →": "← →",
+  "上一页 / 下一页": "Previous / next page",
+  "音效": "Sound",
+  "喇叭": "Speaker",
+  "右上角按钮开 / 关，默认开着": "Toggle with the top-right button; on by default",
+  "响": "Beep",
+  "只在新增、删除时响；移动改色不响": "Only on add and delete — not on move or recolor",
   "未配置": "Not configured",
   "已配置 · 未登录云端": "Configured · not signed in",
   "已连接 ": "Connected ",
