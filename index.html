@@ -3383,12 +3383,24 @@ function openEditor(el){
   editor.style.background = isCard ? ((el.link || el.image) ? "#ffffff" : (el.fill || "#ffe9a8")) : "#f7f8f6";
   editor.value = el.text || "";
   editor.focus();
-  setTimeout(keepEditingVisible, 300);
+  [120, 300, 520, 800].forEach(function(ms){ setTimeout(keepEditingVisible, ms); });
   editor.setSelectionRange(editor.value.length, editor.value.length);
 }
 /* 手机键盘弹起后，保证正在编辑的元素不会被键盘顶出可视区 */
+/* 键盘弹起时浏览器会把整页顶滚，把残留的滚动位置按住 */
+function pinViewport(){
+  if(window.scrollY > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0){
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
+}
+
+var EDIT_TOP_LIMIT = 28;   /* 便签最高只能到可见区顶往下这么一点，再往上就顶住不动 */
+
 function keepEditingVisible(){
   if(!editingId || !window.visualViewport) return;
+  pinViewport();
   var el = elById(editingId);
   if(!el) return;
   var vh = Math.min(window.visualViewport.height, window.innerHeight);  /* 键盘弹起后真正的可见高度 */
@@ -3396,11 +3408,15 @@ function keepEditingVisible(){
   var pTop = toScreen(bb.x, bb.y).y;
   var pBot = toScreen(bb.x, bb.y + bb.h).y;
   /* 完全落在键盘上方可见区里：画布一动不动 */
-  if(pTop >= 8 && pBot <= vh - 12) return;
-  /* 会被遮住：整体平移，让这张便签落在可见区正中 */
+  if(pTop >= EDIT_TOP_LIMIT && pBot <= vh - 12) return;
+  /* 会被遮住 / 被挤出画面：整体平移，让这张便签落在可见区正中 */
   var wantCenter = vh / 2;
   var curCenter = (pTop + pBot) / 2;
-  cam.y += (curCenter - wantCenter) / cam.zoom;
+  var shift = curCenter - wantCenter;
+  /* 但不能把便签推到可见区顶部以上：最多顶到 EDIT_TOP_LIMIT */
+  if(pTop - shift < EDIT_TOP_LIMIT) shift = Math.max(0, pTop - EDIT_TOP_LIMIT);
+  if(Math.abs(shift) < 0.5){ return; }
+  cam.y += shift / cam.zoom;
   requestRender(); syncZoom();
   var b2 = bboxEl(el), pp = toScreen(b2.x, b2.y);
   editor.style.left = (pp.x + 15 * cam.zoom - 1) + "px";
@@ -5623,7 +5639,10 @@ function healUiState(){
 window.addEventListener("resize", function(){ healUiState(); syncZoom(); updateHint(); });
 if(window.visualViewport){
   window.visualViewport.addEventListener("resize", function(){ refreshDpr(); healUiState(); syncZoom(); keepEditingVisible(); requestRender(); });
+  window.visualViewport.addEventListener("scroll", function(){ if(editingId){ pinViewport(); requestRender(); } });
 }
+window.addEventListener("scroll", function(){ if(editingId) pinViewport(); }, {passive:true});
+document.addEventListener("scroll", function(){ if(editingId) pinViewport(); }, true);
 window.addEventListener("orientationchange", function(){ setTimeout(function(){ healUiState(); syncZoom(); updateHint(); requestRender(); }, 220); });
 document.addEventListener("visibilitychange", function(){ if(!document.hidden){ healUiState(); syncZoom(); updateHint(); updateNodeOps(); requestRender(); } });
 
@@ -6071,7 +6090,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-43";
+var APP_VERSION = "2026.11.08-44";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
