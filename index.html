@@ -1177,6 +1177,24 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
   transition:background .15s,color .15s,transform .15s;
 }
 #eyeBtn:hover{background:#151a21;color:#ffffff;transform:translateY(-1px)}
+#undoBtn,#redoBtn{
+  position:absolute;
+  right:22px;
+  width:40px;height:40px;
+  display:grid;place-items:center;
+  border:1px solid #dfe3e6;
+  background:#ffffff;
+  color:#2b3238;
+  border-radius:50%;
+  cursor:pointer;
+  box-shadow:0 8px 20px -12px rgba(21,26,33,.55);
+  transition:background .15s,color .15s,transform .15s;
+}
+#undoBtn{bottom:214px}
+#redoBtn{bottom:262px}
+#undoBtn:hover,#redoBtn:hover{background:#151a21;color:#ffffff;transform:translateY(-1px)}
+#undoBtn:disabled,#redoBtn:disabled{opacity:.4;cursor:default;background:#fff;color:#2b3238;transform:none}
+
 #eyeBtn.is-on{background:var(--accent);border-color:var(--accent);color:#151a21}
 #focusTag{
   position:absolute;
@@ -1198,14 +1216,14 @@ body.is-focus #backupChip,
 body.is-focus #colorPill,
 body.is-focus #connStyle,
 body.is-focus #frameSeq{display:none !important}
-body.is-focus #eyeBtn{display:none !important}
+body.is-focus #eyeBtn,body.is-focus #undoBtn,body.is-focus #redoBtn{display:none !important}
 body.is-focus #zoomBar{opacity:.35}
 body.is-focus #board{background:#f2f3f1}
 
 #walkBar button:disabled{opacity:.35;cursor:default}
 
 /* 浮层统一压在画布之上 */
-#toolbar,#backupChip,#zoomBar,#eyeBtn,#focusTag,#walkNext,#drawerToggle{z-index:12}
+#toolbar,#backupChip,#zoomBar,#eyeBtn,#undoBtn,#redoBtn,#focusTag,#walkNext,#drawerToggle{z-index:12}
 
 /* 手机 / 窄屏：侧栏变抽屉，画布占满 */
 @media (max-width:820px){ .cloud-mini{display:none} }
@@ -1232,6 +1250,8 @@ body.is-focus #board{background:#f2f3f1}
   #backupChip{top:14px;right:14px;max-width:44vw;overflow:hidden;white-space:nowrap}
   #zoomBar{bottom:14px;right:12px}
   #eyeBtn{bottom:70px;right:14px}
+  #undoBtn{bottom:118px;right:14px;width:38px;height:38px}
+  #redoBtn{bottom:164px;right:14px;width:38px;height:38px}
   #colorPill{top:60px;left:14px;right:auto;transform:none}
   #panel{right:10px;top:54px;max-height:calc(100vh - 68px);width:calc(100vw - 20px)}
   .panel-body,.panel-head{padding-left:14px;padding-right:14px}
@@ -1367,6 +1387,12 @@ details.man-adv .inner{padding:0 12px 12px}
       <span id="backupText">备份未设置</span>
     </button>
 
+    <button id="undoBtn" type="button" title="撤销（Ctrl Z）" data-zh="撤销" data-en="Undo">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.75"><path d="M8.5 6.5 4 11l4.5 4.5"></path><path d="M4 11h9.2a5.8 5.8 0 0 1 0 11.6"></path></svg>
+    </button>
+    <button id="redoBtn" type="button" title="重做（Ctrl Shift Z）" data-zh="重做" data-en="Redo">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.75"><path d="M15.5 6.5 20 11l-4.5 4.5"></path><path d="M20 11h-9.2a5.8 5.8 0 0 0 0 11.6"></path></svg>
+    </button>
     <button id="eyeBtn" type="button" title="聚焦演示（Esc 退出）">
       <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7">
         <path d="M2.6 12s3.2-6.2 9.4-6.2S21.4 12 21.4 12s-3.2 6.2-9.4 6.2S2.6 12 2.6 12z"></path>
@@ -1845,6 +1871,7 @@ function idbSet(key, val){
 /* ============================================================
    2. 全局状态
    ============================================================ */
+var DEFAULT_DOC = false;   /* 本机是否还是出厂欢迎画板（没被编辑过） */
 var state = {
   boards: [],
   activeId: null,
@@ -2005,6 +2032,8 @@ setTimeout(function(){
 }, 0);
 
 function historyPush(){
+  DEFAULT_DOC = false;   /* 一旦有编辑动作，本机就算"有真实内容"，云端不再自动覆盖 */
+  setTimeout(syncHistBtns, 0);
   var b = board();
   if(!b) return;
   if(history.boardId !== state.activeId){ historyReset(); return; }
@@ -2022,6 +2051,7 @@ function historyPush(){
   if(nPrev !== nNow) playSfx();
 }
 function undo(){
+  setTimeout(syncHistBtns, 0);
   if(history.boardId !== state.activeId) return;
   if(history.index <= 0) return;
   history.index--;
@@ -2030,6 +2060,7 @@ function undo(){
   scheduleSave(); requestRender();
 }
 function redo(){
+  setTimeout(syncHistBtns, 0);
   if(history.boardId !== state.activeId) return;
   if(history.index >= history.stack.length - 1) return;
   history.index++;
@@ -3636,7 +3667,30 @@ cv.addEventListener("pointermove", function(e){
   }
 });
 
+var lastTap = { id:null, at:0 };
+function handleTouchDoubleTap(e){
+  if(e.pointerType !== "touch" || pinch) return false;
+  if(drag && (drag.moved || drag.mode === "create")) return false;
+  var sp = pointer(e);
+  var wp = toWorld(sp.x, sp.y);
+  var hit = hitTest(wp.x, wp.y);
+  if(!hit){ lastTap = { id:null, at:0 }; return false; }
+  var now = Date.now();
+  if(lastTap.id === hit.id && now - lastTap.at < 360){
+    lastTap = { id:null, at:0 };
+    clearTimeout(touchTimer);
+    state.selection = [hit.id];
+    syncUI();
+    if(hit.src || (hit.image && !hit.link)){ openCrop(hit); }
+    else if(hit.type === "note" || hit.type === "card" || hit.type === "text"){ openEditor(hit); }
+    requestRender();
+    return true;
+  }
+  lastTap = { id:hit.id, at:now };
+  return false;
+}
 cv.addEventListener("pointerup", function(e){
+  if(handleTouchDoubleTap(e)){ drag = null; return; }
   if(pendingEditId){
     var pe0 = elById(pendingEditId);
     pendingEditId = null;
@@ -4390,6 +4444,9 @@ var ICONS = {
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M10 14a4.2 4.2 0 0 1 0-6l1.8-1.8a4.2 4.2 0 0 1 6 6L16 14"></path><path d="M14 10a4.2 4.2 0 0 1 0 6l-1.8 1.8a4.2 4.2 0 0 1-6-6L8 10"></path></svg>',
   undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8.5 6.5 4 11l4.5 4.5"></path><path d="M4 11h9.2a5.8 5.8 0 0 1 0 11.6"></path></svg>',
   redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M15.5 6.5 20 11l-4.5 4.5"></path><path d="M20 11h-9.2a5.8 5.8 0 0 0 0 11.6"></path></svg>',
+  duplicate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round"><rect x="3.6" y="3.6" width="11.4" height="11.4" rx="1.6"></rect><rect x="9" y="9" width="11.4" height="11.4" rx="1.6" stroke-width="1.4" opacity=".65"></rect></svg>',
+  child: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><rect x="3" y="4" width="8.4" height="6.6" rx="1.4"></rect><rect x="12.6" y="13.4" width="8.4" height="6.6" rx="1.4"></rect><path d="M7.2 10.9v3.4a1.6 1.6 0 0 0 1.6 1.6h3.6"></path></svg>',
+  sibling: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><rect x="3" y="9" width="8.2" height="6.4" rx="1.4"></rect><rect x="12.8" y="9" width="8.2" height="6.4" rx="1.4"></rect><path d="M12 12h.01"></path></svg>',
   emoji: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="8"></circle><path d="M9 10.2h.01M15 10.2h.01" stroke-width="1.6"></path><path d="M8.6 14.4a4 4 0 0 0 6.8 0"></path></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"></path><path d="M9 7V5.2A1.2 1.2 0 0 1 10.2 4h3.6A1.2 1.2 0 0 1 15 5.2V7"></path><path d="M6.4 7l.8 11.4A1.8 1.8 0 0 0 9 20h6a1.8 1.8 0 0 0 1.8-1.6L17.6 7"></path><path d="M10 10.5v6M14 10.5v6"></path></svg>'
 };
@@ -4826,6 +4883,20 @@ $("#eyeBtn").addEventListener("click", function(){
   if(state.focus) stopWalk();
   else startWalk();
 });
+$("#undoBtn").addEventListener("click", function(){
+  if(state.preview) return;
+  undo();
+});
+$("#redoBtn").addEventListener("click", function(){
+  if(state.preview) return;
+  redo();
+});
+function syncHistBtns(){
+  var u = $("#undoBtn"), r = $("#redoBtn");
+  if(!u || !r) return;
+  u.disabled = !(history.stack.length && history.index > 0);
+  r.disabled = !(history.stack.length && history.index < history.stack.length - 1);
+}
 
 
 
@@ -5076,7 +5147,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-31";
+var APP_VERSION = "2026.11.08-32";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5142,6 +5213,9 @@ var RAD_OUT = [
   { act:"action:link", icon:ICONS.link,   label:"链接卡" },
   { act:"tool:pencil", icon:ICONS.pencil, label:"画笔" },
   { act:"action:emoji", icon:ICONS.emoji, label:"表情" },
+  { act:"action:duplicate", icon:ICONS.duplicate, label:"复制一份", needsSel:true },
+  { act:"action:child", icon:ICONS.child, label:"新增下一级", needsSel:true },
+  { act:"action:sibling", icon:ICONS.sibling, label:"新增同级", needsSel:true },
   { act:"action:front", icon:ICONS.front, label:"置顶", needsSel:true },
   { act:"action:back", icon:ICONS.back, label:"置底", needsSel:true },
   { act:"action:delete", icon:ICONS.trash, label:"删除", needsSel:true }
@@ -5249,6 +5323,25 @@ function executeRadial(act){
   if(act === "action:delete"){
     if(!state.selection.length){ toast("先选中要删除的内容"); return; }
     deleteSelection(); toast("已删除");
+    return;
+  }
+  if(act === "action:duplicate"){
+    if(!state.selection.length){ toast("先选中要复制的内容"); return; }
+    duplicateSelection(); toast("已复制一份");
+    return;
+  }
+  if(act === "action:child"){
+    if(state.selection.length !== 1){ toast("先选中一张便签，再加下一级"); return; }
+    var c1 = elById(state.selection[0]);
+    if(!c1){ return; }
+    mindChild(c1.id);
+    return;
+  }
+  if(act === "action:sibling"){
+    if(state.selection.length !== 1){ toast("先选中一个节点，再加同级"); return; }
+    var c2 = elById(state.selection[0]);
+    if(!c2){ return; }
+    mindSibling(c2.id);
     return;
   }
   if(act === "action:undo"){ undo(); return; }
@@ -5709,6 +5802,13 @@ var I18N_EN = {
   "已使用小图 ": "Using the small one ",
   "保留原图 ": "Kept the original ",
   "当前版本": "Current",
+  "复制一份": "Duplicate",
+  "新增下一级": "Add child",
+  "新增同级": "Add sibling",
+  "先选中要复制的内容": "Select something to duplicate first",
+  "先选中一张便签，再加下一级": "Select one note first",
+  "先选中一个节点，再加同级": "Select one node first",
+  "已复制一份": "Duplicated",
   "预览中：": "Previewing: ",
   "正在预览 ": "Previewing ",
   " 的版本，画布只读": " (read-only)",
@@ -6242,11 +6342,13 @@ async function cloudAdopt(manual){
     } else {
       var remoteAt0 = row.payload.updatedAt || 0;
       var localNewest0 = state.boards.reduce(function(m, b0){ return Math.max(m, b0.updatedAt || 0); }, 0);
-      if(localNewest0 > remoteAt0) return false;   /* 本机更新，别被云端旧副本覆盖 */
+      /* 本机只有出厂欢迎画板（从没编辑过）时，无条件采纳云端内容 */
+      if(!DEFAULT_DOC && localNewest0 > remoteAt0) return false;   /* 本机更新，别被云端旧副本覆盖 */
     }
     idbSet("docBak", { boards: state.boards, activeId: state.activeId }).catch(function(){});
     state.boards = row.payload.boards;
     state.activeId = row.payload.activeId || (state.boards[0] && state.boards[0].id);
+    DEFAULT_DOC = false;
     history.stack = []; history.index = -1;
     renderBoardList();
     switchBoard(state.activeId);
@@ -6694,6 +6796,7 @@ function boot(){
       ];
       state.boards = [welcome];
       state.activeId = welcome.id;
+      DEFAULT_DOC = true;
     }
     buildToolbar();
     renderBoardList();
