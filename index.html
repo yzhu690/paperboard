@@ -1187,6 +1187,38 @@ body.is-focus #board{background:#f2f3f1}
   #eyeBtn{bottom:70px;right:14px}
   #colorPill{top:60px;left:14px;right:auto;transform:none}
 }
+
+/* ===== 使用说明（新手引导） ===== */
+.man-lead{font-size:12.5px;line-height:1.75;color:#5c656f;margin-bottom:6px}
+.man-card{background:#fff;border:1px solid #e8ecee;border-radius:12px;padding:14px 14px 12px;margin-bottom:14px}
+.man-card.is-accent{border-color:#d8dee2;background:#fcfdfb}
+.man-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.man-badge{font-size:30px;font-weight:800;line-height:1;color:#151a21;letter-spacing:-.02em;flex:0 0 30px;text-align:center;font-family:"Noto Sans SC",sans-serif}
+.man-title{font-size:14px;font-weight:700;letter-spacing:.01em;color:#151a21}
+.man-sub{font-size:11.5px;color:#8a929a;margin-left:auto}
+.man-illo{display:block;width:100%;height:auto;margin:2px 0 12px;background:transparent}
+.man-step{display:flex;gap:9px;margin-bottom:9px}
+.man-step .n{flex:0 0 18px;height:18px;border-radius:50%;border:1px solid #cfd6da;color:#151a21;font-size:10.5px;display:flex;align-items:center;justify-content:center;margin-top:1px;font-weight:600}
+.man-step .t{font-size:12.5px;line-height:1.65;color:#39414a}
+.man-step .t b{color:#151a21}
+.man-tip{font-size:11.5px;line-height:1.6;color:#7d868f;background:#f6f8f5;border-radius:8px;padding:8px 10px;margin-top:4px}
+.man-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+details.man-adv{border:1px solid #e8ecee;border-radius:10px;margin:12px 0;background:#fcfdfc}
+details.man-adv summary{cursor:pointer;padding:10px 12px;font-size:12.5px;color:#5c656f;list-style:none}
+details.man-adv summary::-webkit-details-marker{display:none}
+details.man-adv summary::before{content:"▸ ";color:#9aa3ab}
+details.man-adv[open] summary::before{content:"▾ "}
+details.man-adv .inner{padding:0 12px 12px}
+
+.update-chip{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:8px;height:38px;padding:0 16px;
+  border:none;border-radius:19px;background:#151a21;color:#eef2ef;
+  font-family:var(--font-ui);font-size:12.5px;cursor:pointer;z-index:80;
+  box-shadow:0 10px 26px -10px rgba(21,26,33,.6);
+}
+.update-chip .uc-dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.update-chip em{font-style:normal;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
 </style>
 </head>
 <body>
@@ -1301,8 +1333,8 @@ body.is-focus #board{background:#f2f3f1}
 <div id="panel">
   <div class="panel-head">
     <div>
-      <div class="panel-title">备份到「同步空间」</div>
-      <div class="panel-desc">备份文件直接写进你本机的网盘同步文件夹，客户端会自动上传，不需要申请任何接口权限。</div>
+      <div class="panel-title">使用说明</div>
+      <div class="panel-desc">按图一步一步做。只用一台设备的话，第 1 块看完就能用。</div>
     </div>
     <button class="x-btn" id="panelClose" type="button" aria-label="关闭">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"></path></svg>
@@ -1310,82 +1342,222 @@ body.is-focus #board{background:#f2f3f1}
   </div>
 
   <div class="panel-body">
-    <div class="step">
-      <span class="step-n">01</span>
-      <div class="step-t">在<b>百度网盘客户端</b>里打开「设置 → 同步空间」，启用后记下它在电脑上的本地文件夹路径。</div>
-    </div>
-    <div class="step">
-      <span class="step-n">02</span>
-      <div class="step-t">点下面的按钮，选中那个文件夹并允许写入。授权一次即可，浏览器会记住。</div>
-    </div>
-    <div class="step">
-      <span class="step-n">03</span>
-      <div class="step-t">此后每次改动都会自动写入 <b>纸面备份.json</b>，网盘客户端负责上传，无需手动操作。</div>
+    <div class="man-lead">照着往下做就行，每一步都配了图。中途关掉也没关系，画板会自己存着。</div>
+
+    <div class="man-card is-accent">
+      <div class="man-h"><span class="man-badge">1</span><span class="man-title">先会用：三步</span></div>
+      <svg class="man-illo" viewBox="0 0 320 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="wob1" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="2" seed="11" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+  <g filter="url(#wob1)" stroke="#151a21" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 22 q-1-5 5-5 l58 1 q5 0 5 5 l1 34 h-69 z"/>
+    <path d="M26 26 h58 v22 h-58 z" stroke-width="1.1"/>
+    <path d="M8 62 h99 l-7 11 h-85 z"/>
+    <path d="M30 30 h28 M30 37 h40 M30 44 h22" stroke-width="1.1"/>
+    <path d="M120 40 q14-7 27-2"/>
+    <path d="M141 32 l7 6 l-8 3"/>
+    <path d="M157 22 l36-3 l4 37 l-37 3 z"/>
+    <path d="M166 33 h20 M166 40 h15 M166 47 h12" stroke-width="1.1"/>
+    <path d="M212 24 q0-4 4-4 l38 1 q4 0 4 4 l1 34 q0 3-3 3 h-40 q-3 0-3-3 z"/>
+    <path d="M226 44 l7 8 l13-15" stroke-width="2"/>
+  </g>
+  <g font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#6f7883">
+    <text x="30" y="88">打开网页</text>
+    <text x="158" y="72">双击写字</text>
+    <text x="212" y="72">自动保存</text>
+  </g>
+</svg>
+      <div class="man-step"><span class="n">1</span><div class="t">用 <b>Chrome 或 Edge</b> 浏览器打开下面这个网址（手机上用系统自带浏览器也行）。</div></div>
+      <div class="man-step"><span class="n">2</span><div class="t">想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松手</b>，手机<b>长按一下</b>出现转盘，点一下就换好。</div></div>
+      <div class="man-step"><span class="n">3</span><div class="t">不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（在同一个浏览器里）。</div></div>
+      <div class="man-tip">先记住一句：<b>画的内容存在「这台设备的浏览器」里</b>，换设备要自己搬，下面第二块讲怎么搬。</div>
     </div>
 
-    <div class="field">
-      <span class="field-k">目标文件夹</span>
-      <span class="field-v empty" id="folderName">尚未选择</span>
-    </div>
-    <div class="field">
-      <span class="field-k">上次写入</span>
-      <span class="field-v empty" id="lastWrite">—</span>
+    <div class="man-card">
+      <div class="man-h"><span class="man-badge">2</span><span class="man-title">让手机和电脑是同一份画板</span><span class="man-sub">二选一</span></div>
+      <div class="man-lead" style="margin-bottom:12px">两种办法，<b>用手机就选 A，只用电脑就选 B</b>。两个都做也行，但会各存一份。</div>
+
+      <div class="man-h" style="margin-bottom:8px"><span class="man-title" style="font-size:13px">A · 手机 / 平板：登录一次，自动同步</span></div>
+      <svg class="man-illo" viewBox="0 0 320 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="wob2" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="2" seed="23" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+  <g filter="url(#wob2)" stroke="#151a21" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 14 q0-4 4-4 l30 1 q4 0 4 4 l1 58 q0 3-3 3 h-33 q-3 0-3-3 z"/>
+    <path d="M32 22 h27 v36 h-27 z" stroke-width="1.1"/>
+    <path d="M41 68 h10" stroke-width="1.2"/>
+    <path d="M86 40 q22-13 50-2"/>
+    <path d="M127 31 l9 5 l-10 5"/>
+    <path d="M136 60 q-22 12-50 2"/>
+    <path d="M95 64 l-9-5 l10-5"/>
+    <path d="M235 50 q-2-15 16-16 q8-9 20 1 q17-2 17 14 q1 12-13 12 l-36 1 q-14 0-4-12"/>
+    <path d="M243 58 l7 8 l13-16" stroke-width="2"/>
+
+  </g>
+  <g font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#6f7883">
+    <text x="24" y="88">手机</text>
+    <text x="98" y="86">同一个邮箱</text>
+    <text x="238" y="86">云端</text>
+  </g>
+</svg>
+      <div class="man-step"><span class="n">1</span><div class="t">点下面的 <b>「登录云端账号」</b>，选「账号密码」，填你的邮箱和一个密码。</div></div>
+      <div class="man-step"><span class="n">2</span><div class="t">如果这个邮箱是第一次用，<b>会自动帮你注册并直接进</b>，不用等邮件。</div></div>
+      <div class="man-step"><span class="n">3</span><div class="t">登录好后，手机和电脑都填<b>同一个邮箱</b>，两边就是同一份画板，改哪边都会自己同步。</div></div>
+      <div class="man-actions">
+        <button class="btn primary" id="btnCloudLogin" type="button">登录云端账号（推荐）</button>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <span class="field-k">同步状态</span>
+        <span class="field-v" id="cloudStatus">未登录</span><span class="dot" id="cloudDot"></span>
+      </div>
+      <div class="man-tip">手机浏览器不能直接写文件夹，所以手机上只走这一条。登录一次就记住，下次打开自动同步。</div>
+
+      <div class="man-h" style="margin:18px 0 8px"><span class="man-title" style="font-size:13px">B · 电脑：存进百度网盘「同步空间」</span></div>
+      <svg class="man-illo" viewBox="0 0 320 104" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="wob3" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="2" seed="37" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+  <g filter="url(#wob3)" stroke="#151a21" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 22 q-1-5 5-5 l54 1 q5 0 5 5 l1 32 h-65 z"/>
+    <path d="M20 26 h52 v20 h-52 z" stroke-width="1.1"/>
+    <path d="M2 60 h94 l-7 11 h-80 z"/>
+    <path d="M104 40 q12-4 20 0"/>
+    <path d="M119 33 l6 6 l-7 3"/>
+    <path d="M146 56 q-1-14 15-15 q8-8 19 1 q15-2 15 13 q1 11-12 11 l-34 1 q-13 0-3-11"/>
+    <path d="M174 44 l6 8 l12-16" stroke-width="2"/>
+    <path d="M212 40 q12-3 20 1"/>
+    <path d="M227 34 l6 6 l-7 3"/>
+    <path d="M246 26 l30-2 l9 5 l30 1 l1 24 h-70 z"/>
+    <path d="M246 26 l9 5 h30 l-9-5"/>
+    <path d="M256 44 h28" stroke-width="1.1"/>
+    <path d="M280 58 v11 M275 65 l5 6 l5-6" stroke-width="1.3"/>
+  </g>
+  <g font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#6f7883">
+    <text x="12" y="88">电脑</text>
+    <text x="150" y="88">同步空间</text>
+    <text x="206" y="94" font-size="9">纸面备份.json</text>
+  </g>
+</svg>
+      <div class="man-step"><span class="n">1</span><div class="t">电脑上装 <b>百度网盘客户端</b>，登录你的账号。</div></div>
+      <div class="man-step"><span class="n">2</span><div class="t">打开客户端 → <b>设置 → 同步空间</b> → 打开开关。它会在这台电脑上建一个文件夹，记住它在哪。</div></div>
+      <div class="man-step"><span class="n">3</span><div class="t">回到这里，点 <b>「选择同步空间文件夹」</b>，选中刚才那个文件夹，浏览器问你「允许写入」时点允许。</div></div>
+      <div class="man-step"><span class="n">4</span><div class="t">以后每 5 分钟自动写一个 <b>纸面备份.json</b> 进去，网盘客户端负责传上云，你不用管。</div></div>
+      <div class="field"><span class="field-k">目标文件夹</span><span class="field-v empty" id="folderName">尚未选择</span></div>
+      <div class="field"><span class="field-k">上次写入</span><span class="field-v empty" id="lastWrite">—</span></div>
+      <div class="man-actions">
+        <button class="btn primary" id="btnPickFolder" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#eef2ef" stroke-width="1.8"><path d="M3 7h7l2 2h9v10H3z"></path></svg>
+          选择同步空间文件夹
+        </button>
+        <button class="btn" id="btnWriteNow" type="button">立即写入一次</button>
+      </div>
+      <div class="man-tip">只有 Chrome / Edge 电脑版能做这一步。Safari、Firefox、手机浏览器点这个按钮会提示不支持，那就用下面的「导出 / 导入 .json」代替。</div>
     </div>
 
-    <div class="acts">
-      <button class="btn primary" id="btnPickFolder" type="button">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#eef2ef" stroke-width="1.8"><path d="M3 7h7l2 2h9v10H3z"></path></svg>
-        选择同步空间文件夹
-      </button>
-      <button class="btn" id="btnWriteNow" type="button">立即写入一次</button>
+    <div class="man-card">
+      <div class="man-h"><span class="man-badge">3</span><span class="man-title">换新设备：把画板搬过去</span></div>
+      <svg class="man-illo" viewBox="0 0 320 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="wob4" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="2" seed="41" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+  <g filter="url(#wob4)" stroke="#151a21" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 22 q-1-5 5-5 l52 1 q5 0 5 5 l1 30 h-63 z"/>
+    <path d="M26 26 h50 v19 h-50 z" stroke-width="1.1"/>
+    <path d="M8 60 h92 l-7 10 h-78 z"/>
+    <path d="M100 42 q12-3 20 0"/>
+    <path d="M115 35 l6 6 l-7 3"/>
+    <path d="M148 26 l24-2 l3 34 l-25 2 z"/>
+    <path d="M156 38 h14 M156 45 h11" stroke-width="1.1"/>
+    <path d="M186 42 q12-3 20 0"/>
+    <path d="M201 35 l6 6 l-7 3"/>
+    <path d="M232 20 q-1-4 4-4 l48 1 q4 0 4 4 l1 34 h-57 z"/>
+    <path d="M240 30 h40 v24 h-40 z" stroke-width="1.1"/>
+    <path d="M253 40 l6 8 l12-14" stroke-width="2"/>
+    <path d="M244 66 h34" stroke-width="1.1" stroke-dasharray="3 4"/>
+  </g>
+  <g font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#6f7883">
+    <text x="20" y="88">旧设备</text>
+    <text x="150" y="76">.json</text>
+    <text x="238" y="90">新设备</text>
+  </g>
+</svg>
+      <div class="man-step"><span class="n">1</span><div class="t">新电脑：装网盘客户端并打开同步空间，<b>等它把 纸面备份.json 下载到本地</b>。</div></div>
+      <div class="man-step"><span class="n">2</span><div class="t">打开纸面 → 本面板 → 选同一个文件夹 → 点 <b>「从备份文件夹恢复」</b>。</div></div>
+      <div class="man-step"><span class="n">3</span><div class="t">没有网盘、或手机上想看：用 <b>「导出 .json」</b> 把文件发给自己，再在另一台点 <b>「导入 .json」</b>。</div></div>
+      <div class="man-actions">
+        <button class="btn" id="btnRestore" type="button">从备份文件夹恢复</button>
+        <button class="btn ghost" id="btnExportJson" type="button">导出 .json</button>
+        <button class="btn ghost" id="btnImportJson" type="button">导入 .json</button>
+      </div>
     </div>
 
-    <div class="section-k">Walkthrough 演示</div>
-    <div class="step">
-      <span class="step-n">01</span>
-      <div class="step-t">点选容器，标题旁会出现序号下拉：已用掉的数字不会再出现在列表里。</div>
-    </div>
-    <div class="step">
-      <span class="step-n">02</span>
-      <div class="step-t">点右下角眼睛进入聚焦模式：侧栏收起，容器按 90% 占满画布，前后翻页，最后一页「下一张」变灰。</div>
-    </div>
-    <div class="field">
-      <span class="field-k">已排序</span>
-      <span class="field-v" id="walkCount">0 个</span>
-    </div>
-    <div class="acts">
-      <button class="btn primary" id="btnWalkPlay" type="button">进入聚焦演示</button>
-      <button class="btn" id="btnWalkClear" type="button">清空序号</button>
+    <div class="man-card">
+      <div class="man-h"><span class="man-badge">4</span><span class="man-title">导出：发给别人或打印</span></div>
+      <svg class="man-illo" viewBox="0 0 320 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="wob5" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="2" seed="53" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></defs>
+  <g filter="url(#wob5)" stroke="#151a21" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 18 l44-2 l3 50 l-45 2 z"/>
+    <path d="M34 32 h24 M34 40 h19 M34 48 h22" stroke-width="1.1"/>
+    <path d="M96 18 l44-2 l3 50 l-45 2 z"/>
+    <path d="M106 32 h13 l3 3 h8 M106 42 h24 M106 50 h18" stroke-width="1.1"/>
+    <path d="M168 18 l44-2 l3 50 l-45 2 z"/>
+    <path d="M176 44 l12-10 l9 8 l7-5 l10 9" stroke-width="1.1"/>
+    <circle cx="188" cy="30" r="5" stroke-width="1.1"/>
+    <path d="M220 20 q0-4 4-4 l38 1 q4 0 4 4 l1 44 q0 3-3 3 h-40 q-3 0-3-3 z"/>
+    <path d="M243 26 v19 M237 39 l6 8 l6-8" stroke-width="1.4"/>
+  </g>
+  <g font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#6f7883">
+    <text x="24" y="82">SVG 可编辑</text>
+    <text x="96" y="82">TXT 存档</text>
+    <text x="166" y="82">PNG 图片</text>
+    <text x="222" y="86">发给别人</text>
+  </g>
+</svg>
+      <div class="man-step"><span class="n">1</span><div class="t"><b>SVG</b>：文字能选中、能继续改，适合给同事接手编辑。</div></div>
+      <div class="man-step"><span class="n">2</span><div class="t"><b>PNG</b>：一张 2 倍清晰的图片，适合发微信、贴进 PPT。</div></div>
+      <div class="man-step"><span class="n">3</span><div class="t"><b>文本 .txt</b>：把便签和卡片上的字按顺序列出来，适合存档、搜索。</div></div>
+      <div class="man-actions">
+        <button class="btn ghost" id="btnExportSvg" type="button">导出 SVG（可编辑文字）</button>
+        <button class="btn ghost" id="btnExportPng" type="button">导出 PNG 图片</button>
+        <button class="btn ghost" id="btnExportTxt" type="button">导出 文本 .txt</button>
+      </div>
     </div>
 
-    <div class="section-k">迁移与恢复</div>
-    <div class="acts">
-      <button class="btn ghost" id="btnRestore" type="button">从备份文件夹恢复</button>
-      <button class="btn ghost" id="btnExportJson" type="button">导出 .json</button>
-      <button class="btn ghost" id="btnImportJson" type="button">导入 .json</button>
-    </div>
+    <details class="man-adv">
+      <summary>进阶：聚焦演示（Walkthrough）</summary>
+      <div class="inner">
+        <div class="man-step"><span class="n">1</span><div class="t">先选中一个容器，标题旁的下拉里挑一个序号：<b>已用过的数字不会重复出现</b>。</div></div>
+        <div class="man-step"><span class="n">2</span><div class="t">点右下角<b>眼睛图标</b>进入聚焦：侧栏收起，容器按 90% 占满屏幕，用前后按钮翻页，最后一页「下一张」变灰。</div></div>
+        <div class="field"><span class="field-k">已排序</span><span class="field-v" id="walkCount">0 个</span></div>
+        <div class="man-actions">
+          <button class="btn primary" id="btnWalkPlay" type="button">进入聚焦演示</button>
+          <button class="btn" id="btnWalkClear" type="button">清空序号</button>
+        </div>
+      </div>
+    </details>
 
-    <div class="section-k">云端同步 · Supabase</div>
-    <div class="step-t">在 supabase.com 建一个免费项目，把下面这段 SQL 粘进 SQL Editor 跑一次，再回填项目地址和 anon key。之后用「手机短信」或「邮箱」验证码登录，画板就会多端自动同步。</div>
-    <div class="mini-k">项目地址</div>
-    <input class="login-input" id="cloudUrl" type="text" placeholder="https://xxxx.supabase.co" style="margin-bottom:8px">
-    <div class="mini-k">anon key（publishable）</div>
-    <input class="login-input" id="cloudKey" type="text" placeholder="eyJhbGciOi… 或 sb_publishable_…" style="margin-bottom:8px">
-    <div class="acts">
-      <button class="btn" id="btnCloudSave" type="button">保存配置</button>
-      <button class="btn ghost" id="btnCloudUp" type="button">立即上传</button>
-      <button class="btn ghost" id="btnCloudDown" type="button">立即下载</button>
-      <button class="btn ghost" id="btnCloudLogin" type="button">登录云端账号</button>
-      <button class="btn ghost" id="btnCloudOut" type="button" style="display:none">断开账号</button>
-    </div>
-    <div class="field">
-      <span class="field-k">状态</span>
-      <span class="field-v" id="cloudStatus">未配置</span><span class="dot" id="cloudDot"></span>
-    </div>
-    <div class="acts">
-      <button class="btn ghost" id="btnCloudSql" type="button">复制建表 SQL</button>
-    </div>
-    <pre id="cloudSql" class="sql-box">create table if not exists pb_docs (
+    <details class="man-adv">
+      <summary>进阶：没有账号时的「同步码」</summary>
+      <div class="inner">
+        <div class="man-lead">在一台设备生成一串码，复制到另一台粘贴导入，等于把整份画板搬过去，不经过服务器。</div>
+        <textarea id="syncBox" class="sync-box" placeholder="点「生成同步码」后这里会出现一长串字符；或在此粘贴另一台设备的同步码"></textarea>
+        <div class="man-actions">
+          <button class="btn" id="btnSyncMake" type="button">生成同步码</button>
+          <button class="btn ghost" id="btnSyncCopy" type="button">复制</button>
+          <button class="btn primary" id="btnSyncTake" type="button">用同步码导入</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="man-adv">
+      <summary>进阶：自己搭 Supabase（会写代码的人再用）</summary>
+      <div class="inner">
+        <div class="man-lead">默认已经连好了。想换成你自己的项目，就填这两项，再去 SQL Editor 建一次表。</div>
+        <div class="mini-k">项目地址</div>
+        <input class="login-input" id="cloudUrl" type="text" placeholder="https://xxxx.supabase.co" style="margin-bottom:8px">
+        <div class="mini-k">anon key（publishable）</div>
+        <input class="login-input" id="cloudKey" type="text" placeholder="eyJhbGciOi… 或 sb_publishable_…" style="margin-bottom:8px">
+        <div class="man-actions">
+          <button class="btn" id="btnCloudSave" type="button">保存配置</button>
+          <button class="btn ghost" id="btnCloudUp" type="button">立即上传</button>
+          <button class="btn ghost" id="btnCloudDown" type="button">立即下载</button>
+          <button class="btn ghost" id="btnCloudOut" type="button" style="display:none">断开账号</button>
+          <button class="btn ghost" id="btnCloudSql" type="button">复制建表 SQL</button>
+        </div>
+        <pre id="cloudSql" class="sql-box">create table if not exists pb_docs (
   user_id uuid primary key references auth.users on delete cascade,
   payload jsonb not null,
   updated_at timestamptz not null default now()
@@ -1394,30 +1566,9 @@ alter table pb_docs enable row level security;
 create policy "own docs" on pb_docs
   for all using (auth.uid() = user_id)
   with check (auth.uid() = user_id);</pre>
+      </div>
+    </details>
 
-    <div class="section-k">跨设备同步（离线同步码）</div>
-    <div class="step-t">在一台设备上生成同步码，到另一台设备登录后粘贴导入，即接管这整套画板。不走服务器，无需短信。</div>
-    <div class="field">
-      <span class="field-k">同步码</span>
-    </div>
-    <textarea id="syncBox" class="sync-box" placeholder="点「生成同步码」后这里会出现一长串字符；或在此粘贴另一台设备的同步码"></textarea>
-    <div class="acts">
-      <button class="btn" id="btnSyncMake" type="button">生成同步码</button>
-      <button class="btn ghost" id="btnSyncCopy" type="button">复制</button>
-      <button class="btn primary" id="btnSyncTake" type="button">用同步码导入</button>
-    </div>
-
-    <div class="section-k">导出当前画板</div>
-    <div class="acts">
-      <button class="btn ghost" id="btnExportSvg" type="button">导出 SVG（文字可编辑）</button>
-      <button class="btn ghost" id="btnExportTxt" type="button">导出 文本 .txt</button>
-      <button class="btn ghost" id="btnExportPng" type="button">导出 PNG 图片</button>
-    </div>
-    <div class="note-small">SVG 里文字是可选中、可继续编辑的文本层；PNG 是 2 倍像素图。</div>
-
-    <div class="note-small">
-      <b>兼容性</b>：文件夹直写需要 Chrome 或 Edge（桌面版）。Safari、Firefox 下这两步会不可用，请改用「导出 .json」，再把文件手动放进同步文件夹——同样能被网盘备份。
-    </div>
   </div>
 </div>
 
@@ -4316,6 +4467,32 @@ $("#eyeBtn").addEventListener("click", function(){
   else startWalk();
 });
 
+/* ---------------- 版本与更新提示 ---------------- */
+var APP_VERSION = "2026.11.08-17";
+function showUpdateChip(){
+  if(document.getElementById("updateChip")) return;
+  var b = document.createElement("button");
+  b.id = "updateChip";
+  b.type = "button";
+  b.className = "update-chip";
+  b.innerHTML = '<span class="uc-dot"></span>纸面有新版本<em>点此刷新</em>';
+  b.addEventListener("click", function(){ location.reload(); });
+  document.body.appendChild(b);
+}
+function checkUpdate(){
+  try{
+    if(location.protocol === "file:") return;
+    fetch("version.json?t=" + Date.now(), { cache:"no-store" })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d || !d.version) return;
+        if(String(d.version) !== APP_VERSION) showUpdateChip();
+      })
+      .catch(function(){});
+  }catch(err){}
+}
+setTimeout(checkUpdate, 900);
+
 /* ---------------- 环形工具栏 ---------------- */
 var RADIAL_BASE = "";
 var radialOpen = false;
@@ -4690,7 +4867,11 @@ function renameBoardInline(b){
    ============================================================ */
 var panel = $("#panel"), scrim = $("#scrim"), keys = $("#keys");
 
-function openPanel(){ panel.classList.add("on"); scrim.classList.add("on"); updateBackupUI(); }
+function openPanel(){
+  var _app = document.getElementById("app");
+  if(_app) _app.classList.remove("drawer-open");
+  panel.classList.add("on"); scrim.classList.add("on"); updateBackupUI();
+}
 function closePanel(){ panel.classList.remove("on"); scrim.classList.remove("on"); }
 
 var appEl = document.getElementById("app");
@@ -5669,6 +5850,7 @@ function boot(){
   var folderBtn = $("#btnFolder");
   if(folderBtn) folderBtn.addEventListener("click", function(){
     if(!window.showDirectoryPicker){
+      toggleDrawer(false);
       showLogin();
       var lt = $("#loginTabCloud"); if(lt) lt.click();
       toast("手机浏览器不能写本地文件夹，请用云端账号登录，登录后自动多端同步");
