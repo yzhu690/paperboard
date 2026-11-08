@@ -2344,10 +2344,13 @@ function autoFitCard(el){
   if(!el || (el.type !== "note" && el.type !== "card")) return;
   if(el.link && !el.text) return;
   if(!el.font0) el.font0 = el.fontSize || 17;   /* 记住原始字号，放大时能回到这个大小 */
+  if(!el.bw || !el.bh){ el.bw = el.w; el.bh = el.h; }   /* 记住基准尺寸，放大时按它等比变大 */
+  /* 只有"比当初更大"才跟着放大；缩小时不缩字，装不下才由下面的收缩兜底 */
+  var grow = Math.max(1, Math.min(el.w / el.bw, el.h / el.bh));
   var pad = 15;
   var maxW = Math.max(24, el.w - pad * 2);
   var maxH = Math.max(20, el.h - pad * 2);
-  var size = Math.max(8, Math.min(56, el.font0));
+  var size = Math.max(8, Math.min(120, el.font0 * (grow > 1.02 ? grow : 1)));
   var guard = 0;
   while(size > 8 && guard < 120){
     measureCtx.font = "400 " + size + "px 'Noto Sans SC','PingFang SC',sans-serif";
@@ -2928,7 +2931,7 @@ function closeEditor(commit){
    9. 元素创建
    ============================================================ */
 function mkNote(wx, wy){
-  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, font0:17, text:"" };
+  return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, font0:17, bw:180, bh:180, text:"" };
 }
 function mkText(wx, wy){
   return { id:uid(), type:"text", x:wx, y:wy, w:320, h:44, text:"", fontSize:22, color:"#1b2027" };
@@ -4959,7 +4962,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-27";
+var APP_VERSION = "2026.11.08-28";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
