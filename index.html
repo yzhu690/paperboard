@@ -577,6 +577,48 @@ html,body{max-width:100%;overflow-x:hidden}
 }
 .zoom-val:hover{background:#2a333d}
 
+/* 选中元素旁的「下一级 / 同级」浮标 */
+#nodeOps{
+  position:fixed;
+  display:none;
+  z-index:19;
+  gap:6px;
+  align-items:center;
+}
+#nodeOps.on{display:flex}
+#nodeOps button{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  height:34px;
+  padding:0 11px 0 9px;
+  border:none;
+  border-radius:18px;
+  background:#151a21;
+  color:#f7f8f6;
+  font-family:var(--font);
+  font-size:12px;
+  letter-spacing:.02em;
+  cursor:pointer;
+  box-shadow:0 2px 10px rgba(21,26,33,.18);
+}
+#nodeOps button i{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;
+  height:20px;
+  border-radius:10px;
+  background:var(--accent);
+  color:#151a21;
+  font-style:normal;
+  font-size:13px;
+  font-weight:700;
+}
+#nodeOps button span{opacity:.86;font-size:10.5px;font-family:var(--font-mono)}
+#nodeOps button:active{transform:scale(.97)}
+
+
 /* 左下：坐标与提示 */
 #hint{
   position:absolute;
@@ -588,6 +630,13 @@ html,body{max-width:100%;overflow-x:hidden}
   letter-spacing:.03em;
   pointer-events:none;
   z-index:2;
+  max-width:min(560px, calc(100vw - 130px));
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@media (max-width:520px){
+  #hint{left:14px;bottom:74px;font-size:10px;max-width:calc(100vw - 28px)}
 }
 
 /* 行内文字编辑 */
@@ -1273,6 +1322,13 @@ body.is-focus #board{background:#f2f3f1}
 .sound-btn.is-off{color:#a8b0b7}
 .sound-btn .slash{display:none}
 .sound-btn.is-off .slash{display:block}
+
+/* 音效下方的「对齐参考线」开关 */
+#guideBtn{top:100px}
+#guideBtn .off-mark{display:none}
+#guideBtn.is-off{color:#a8b0b7}
+#guideBtn.is-off .off-mark{display:block}
+#guideBtn.is-off svg{opacity:.5}
 .update-chip button{display:none}
 
 /* ===== 使用说明（新手引导） ===== */
@@ -1436,7 +1492,17 @@ details.man-adv .inner{padding:0 12px 12px}
   </svg>
 </button>
 
+<button id="guideBtn" class="sound-btn" type="button" aria-label="对齐参考线开关" title="对齐参考线开关">
+  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <path d="M5 4v16"></path>
+    <path d="M9 8h10M9 12h10M9 16h10"></path>
+    <line class="off-mark" x1="4" y1="20" x2="20" y2="4" stroke-width="2"></line>
+  </svg>
+</button>
+
 <div id="hint">空格拖动画布　·　Ctrl 滚轮缩放　·　双击画面写字</div>
+
+    <div id="nodeOps"></div>
 
     <div id="connStyle"></div>
 
@@ -2017,6 +2083,20 @@ function playSfx(){
     if(pr && pr.catch) pr.catch(function(){});
   }catch(e){}
 }
+var GUIDES_ON = true;
+try{ GUIDES_ON = localStorage.getItem("pb-guides") !== "off"; }catch(e){}
+function paintGuideBtn(){
+  var b = document.getElementById("guideBtn");
+  if(b) b.classList.toggle("is-off", !GUIDES_ON);
+}
+function toggleGuides(){
+  GUIDES_ON = !GUIDES_ON;
+  try{ localStorage.setItem("pb-guides", GUIDES_ON ? "on" : "off"); }catch(e){}
+  if(!GUIDES_ON) alignGuides = [];
+  paintGuideBtn(); requestRender();
+  toast(GUIDES_ON ? "对齐参考线已开启" : "对齐参考线已关闭，吸附也一并关掉");
+}
+
 function paintSoundBtn(){
   var b = document.getElementById("soundBtn");
   if(b) b.classList.toggle("is-off", !SOUND_ON);
@@ -2032,6 +2112,9 @@ setTimeout(function(){
   paintSoundBtn();
   var b = document.getElementById("soundBtn");
   if(b) b.addEventListener("click", function(e){ e.stopPropagation(); toggleSound(); });
+  paintGuideBtn();
+  var g = document.getElementById("guideBtn");
+  if(g) g.addEventListener("click", function(e){ e.stopPropagation(); toggleGuides(); });
 }, 0);
 
 function historyPush(){
@@ -2343,6 +2426,7 @@ function draw(){
   if(!state.focus) drawSelectionOverlay();
   if(state.marquee && !state.focus) drawMarquee();
   drawAlignGuides();
+  updateNodeOps();
 }
 
 function drawGrid(v){
@@ -3055,6 +3139,7 @@ function alignCandidates(){
 /* 拖动或缩放时，贴近其它元素边线就吸附，并画红色细参考线 */
 function applyAlignSnap(box, snapStrength){
   alignGuides = [];
+  if(!GUIDES_ON) return { dx: 0, dy: 0 };
   var tol = 6 / cam.zoom;
   var pool = alignCandidates();
   if(!pool.length) return { dx: 0, dy: 0 };
@@ -3083,11 +3168,11 @@ function applyAlignSnap(box, snapStrength){
   return { dx: dx, dy: dy };
 }
 function drawAlignGuides(){
-  if(!alignGuides.length || !drag) return;
+  if(!GUIDES_ON || !alignGuides.length || !drag) return;
   var v = viewSize();
   ctx.save();
-  ctx.strokeStyle = "#d2503c";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(210,80,60,.9)";
+  ctx.lineWidth = 0.3;
   ctx.setLineDash([]);
   alignGuides.forEach(function(g){
     if(g.v !== undefined){
@@ -3841,7 +3926,7 @@ cv.addEventListener("pointermove", function(e){
 
   var sp = pointer(e);
   var wp = toWorld(sp.x, sp.y);
-  $("#hint").textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　空格拖动画布　·　Ctrl 滚轮缩放";
+  if(!drag) updateHint(wp);
 
   if(!drag) return;
 
@@ -5005,6 +5090,110 @@ function setTool(t){
   syncUI(); requestRender();
 }
 
+var TOUCH_UI = (function(){
+  try{
+    return (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  }catch(e){ return false; }
+})();
+
+/* 思维导图里这个节点是第几级（顶层=1） */
+function mindLevelOf(id){
+  var lvl = 1, cur = id, guard = 0;
+  while(guard++ < 40){
+    var p = connectorsOf(cur).filter(function(c){ return c.to === cur; })[0];
+    if(!p) break;
+    cur = p.from;
+    lvl += 1;
+  }
+  return lvl;
+}
+
+function nodeOpsEl(){
+  var box = $("#nodeOps");
+  if(!box) return null;
+  if(!box.getAttribute("data-built")){
+    box.innerHTML =
+      '<button type="button" data-op="child"><i>+</i>下一级<span>Tab</span></button>' +
+      '<button type="button" data-op="sibling"><i>=</i>同级<span>Enter</span></button>';
+    box.setAttribute("data-built", "1");
+    box.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
+    box.addEventListener("click", function(e){
+      var t = e.target.closest("button[data-op]");
+      if(!t) return;
+      e.preventDefault();
+      var id = box.getAttribute("data-id");
+      if(!id) return;
+      if(t.getAttribute("data-op") === "child") mindChild(id);
+      else mindSibling(id);
+      requestRender(); scheduleSave();
+    });
+  }
+  if(TOUCH_UI){
+    var spans = box.querySelectorAll("button span");
+    for(var si = 0; si < spans.length; si++) spans[si].style.display = "none";
+    box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "40px"; b3.style.fontSize = "13px"; b3.style.padding = "0 14px 0 10px"; });
+    box.querySelectorAll("button i").forEach(function(i3){ i3.style.width = "24px"; i3.style.height = "24px"; i3.style.borderRadius = "12px"; });
+  }
+  return box;
+}
+
+/* 选中单个思维节点时，在它旁边浮出「下一级 / 同级」 */
+function updateNodeOps(){
+  var box = nodeOpsEl();
+  if(!box) return;
+  var one = null;
+  if(!state.focus && !editingId && state.selection.length === 1){
+    var cand = elById(state.selection[0]);
+    if(cand && (cand.type === "note" || cand.type === "card" || cand.type === "text")) one = cand;
+  }
+  if(!one || drag){ box.classList.remove("on"); return; }
+  var lvl = mindLevelOf(one.id);
+  var sib = box.querySelector('button[data-op="sibling"]');
+  if(sib) sib.style.display = lvl >= 2 ? "" : "none";
+  box.setAttribute("data-id", one.id);
+  box.classList.add("on");
+
+  var bb = bboxEl(one), p2 = toScreen(bb.x + bb.w, bb.y), p1 = toScreen(bb.x, bb.y - 44);
+  var off = boardOff();
+  var w = box.offsetWidth || 160, h = box.offsetHeight || 36;
+  var left = off.x + p2.x + 10, top = off.y + p1.y;
+  left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
+  top = Math.max(10, Math.min(top, window.innerHeight - h - 10));
+  box.style.left = Math.round(left) + "px";
+  box.style.top = Math.round(top) + "px";
+}
+
+function boardOff(){
+  var cvv = $("#board");
+  var r = cvv.getBoundingClientRect();
+  return { x: r.left, y: r.top };
+}
+
+var HINT_IDLE_DESKTOP = "空格拖动画布　·　Ctrl 滚轮缩放　·　双击画面写字";
+var HINT_IDLE_TOUCH = "单指拖动画布　·　双指缩放　·　双击便签改字";
+/* 左下提示：跟着选中的元素换文案，并按端区分手势 */
+function updateHint(wp){
+  var box = $("#hint");
+  if(!box) return;
+  if(wp){
+    box.textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　" + (TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP);
+    return;
+  }
+  var one = state.selection.length === 1 ? elById(state.selection[0]) : null;
+  if(one && (one.type === "note" || one.type === "card" || one.type === "text")){
+    var lvl = mindLevelOf(one.id);
+    var base = TOUCH_UI
+      ? "已选中：点右上「+ 下一级」往下长一层"
+      : "已选中：Tab 新增下一级　·　Enter 新增同级　·　双击改字";
+    if(TOUCH_UI && lvl >= 2) base = "已选中：点「+ 下一级」继续分支，「= 同级」并排一层";
+    if(!TOUCH_UI && lvl < 2) base = "已选中：Tab 新增下一级　·　双击改字　·　拖右下角缩放";
+    box.textContent = base;
+    return;
+  }
+  box.textContent = TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP;
+}
+
 function syncUI(){
   var b = board();
   if(!b) return;
@@ -5041,6 +5230,8 @@ function syncUI(){
   syncFrameSeq();
   var eye = $("#eyeBtn");
   if(eye) eye.classList.toggle("is-on", !!state.focus);
+  updateHint();
+  updateNodeOps();
 }
 
 /* ---- 连线样式浮层 ---- */
@@ -5593,7 +5784,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-35";
+var APP_VERSION = "2026.11.08-36";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
