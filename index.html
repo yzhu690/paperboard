@@ -1648,7 +1648,7 @@ create policy "own docs" on pb_docs
   <div class="kl"><kbd>R</kbd><span>矩形</span></div>
   <div class="kl"><kbd>O</kbd><span>圆形</span></div>
   <div class="kl"><kbd>P</kbd><span>铅笔</span></div>
-  <div class="kl"><kbd>T</kbd><span>文字</span></div>
+  <div class="kl"><kbd>T</kbd><span>白底便签</span></div>
   <div class="kl"><kbd>E</kbd><span>橡皮</span></div>
   <div class="kl"><kbd>双击</kbd><span>编辑文字 / 空白处新建文字</span></div>
   <div class="kl"><kbd>Ctrl Z</kbd><span>撤销</span></div>
@@ -2933,8 +2933,8 @@ function closeEditor(commit){
 function mkNote(wx, wy){
   return { id:uid(), type:"note", x:wx - 90, y:wy - 90, w:180, h:180, fill:NOTE_COLORS[0], fontSize:17, font0:17, bw:180, bh:180, text:"" };
 }
-function mkText(wx, wy){
-  return { id:uid(), type:"text", x:wx, y:wy, w:320, h:44, text:"", fontSize:22, color:"#1b2027" };
+function mkWhiteNote(wx, wy){
+  return { id:uid(), type:"note", x:wx - 120, y:wy - 60, w:240, h:120, fill:"#ffffff", fontSize:16, font0:16, bw:240, bh:120, text:"" };
 }
 function mkBoardRef(targetId, wx, wy){
   return { id:uid(), type:"boardref", target:targetId, x:wx - 130, y:wy - 80, w:260, h:160 };
@@ -3418,10 +3418,13 @@ cv.addEventListener("pointerdown", function(e){
     return;
   }
   if(state.tool === "text"){
-    var t = mkText(wp.x, wp.y);
-    addElement(t, true);
+    var wn = mkWhiteNote(wp.x, wp.y);
+    addElement(wn, true);
     setTool("select");
-    setTimeout(function(){ openEditor(t); }, 0);
+    pendingEditId = wn.id;
+    setTimeout(function(){
+      if(pendingEditId === wn.id && !state.editing){ pendingEditId = null; openEditor(wn); }
+    }, 0);
     return;
   }
   if(state.tool === "image"){
@@ -3732,9 +3735,9 @@ cv.addEventListener("dblclick", function(e){
     syncUI();
     openEditor(hit);
   } else if(!hit){
-    var t = mkText(wp.x - 4, wp.y - 12);
-    addElement(t, true);
-    openEditor(t);
+    var wn2 = mkWhiteNote(wp.x, wp.y);
+    addElement(wn2, true);
+    openEditor(wn2);
   }
 });
 
@@ -4367,7 +4370,7 @@ var TOOLS = [
   { k:"line", label:"直线  L" },
   { k:"arrow", label:"箭头  A" },
   { k:"pencil", label:"铅笔  P" },
-  { k:"text", label:"文字  T" },
+  { k:"text", label:"便签（白底）  T" },
   { k:"image", label:"图片  I" },
   { k:"link", label:"网页链接卡  Ctrl V" },
   { k:"eraser", label:"橡皮  E" }
@@ -4962,7 +4965,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-28";
+var APP_VERSION = "2026.11.08-29";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5021,7 +5024,7 @@ var CONN_COLORS = ["#1F2125", "#A71A0B", "#E4970A", "#F4E32D", "#2E470F"];
 var RAD_OUT = [
   { act:"tool:select", icon:ICONS.select, label:"选择" },
   { act:"tool:note",   icon:ICONS.note,   label:"便签" },
-  { act:"tool:text",   icon:ICONS.text,   label:"文字" },
+  { act:"tool:text",   icon:ICONS.text,   label:"白底便签" },
   { act:"tool:rect",   icon:ICONS.rect,   label:"矩形" },
   { act:"tool:arrow",  icon:ICONS.arrow,  label:"箭头" },
   { act:"tool:image",  icon:ICONS.image,  label:"图片" },
@@ -5572,6 +5575,7 @@ var I18N_EN = {
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
   "图片已压缩 ": "Image compressed ",
   "（保留透明）": " (transparency kept)",
+  "便签（白底）  T": "White note  T",
   "这张图压不到 200KB 以内": "This image can\'t get under 200KB",
   "用小图": "Use the small one",
   "已使用小图 ": "Using the small one ",
@@ -5669,6 +5673,7 @@ var I18N_EN = {
   "圆形": "Ellipse",
   "铅笔": "Pen",
   "文字": "Text",
+  "白底便签": "White note",
   "橡皮": "Eraser",
   "双击": "Double-click",
   "编辑文字 / 空白处新建文字": "Edit text / new text on blank canvas",
