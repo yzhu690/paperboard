@@ -612,26 +612,29 @@ html,body{max-width:100%;overflow-x:hidden}
 #nodeOps{
   position:fixed;
   display:none;
-  z-index:19;
-  gap:6px;
+  z-index:20;
+  gap:8px;
   align-items:center;
+  animation:nodeOpsIn .14s ease-out;
 }
+@keyframes nodeOpsIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 #nodeOps.on{display:flex}
 #nodeOps button{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  height:34px;
-  padding:0 11px 0 9px;
+  height:38px;
+  padding:0 14px 0 10px;
   border:none;
-  border-radius:18px;
+  border-radius:19px;
   background:#151a21;
   color:#f7f8f6;
   font-family:var(--font);
-  font-size:12px;
+  font-size:13px;
+  font-weight:500;
   letter-spacing:.02em;
   cursor:pointer;
-  box-shadow:0 2px 10px rgba(21,26,33,.18);
+  box-shadow:0 4px 16px rgba(21,26,33,.26),0 0 0 1.5px rgba(216,228,76,.5);
 }
 #nodeOps button i{
   display:inline-flex;
@@ -1364,6 +1367,12 @@ body.is-focus #board{background:#f2f3f1}
 
 /* ===== 使用说明（新手引导） ===== */
 .man-lead{font-size:12.5px;line-height:1.75;color:#5c656f;margin-bottom:6px}
+.man-dev{margin-bottom:14px}
+.man-dev-h{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;font-size:11.5px;font-weight:600;margin-bottom:8px}
+.man-dev-h.web{background:#eef3ff;color:#2c4d8b}
+.man-dev-h.touch{background:#f2f7e8;color:#3d5714}
+.man-dev .man-step .n{background:#f0f2f3;color:#5c656f}
+
 .man-card{background:#fff;border:1px solid #e8ecee;border-radius:12px;padding:14px 14px 12px;margin-bottom:14px}
 .man-card.is-accent{border-color:#d8dee2;background:#fcfdfb}
 .man-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -1598,6 +1607,30 @@ details.man-adv .inner{padding:0 12px 12px}
 </svg>
 <div class="man-step"><span class="n">1</span><div class="t" data-zh="用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。" data-en="Open this page in <b>Chrome or Edge</b> (a phone's own browser works too).">用 <b>Chrome 或 Edge</b> 打开这个网页（手机上用自带浏览器也行）。</div></div><div class="man-step"><span class="n">2</span><div class="t" data-zh="想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好；手机上<b>双指</b>拖动可平移、捏合可缩放。" data-en="To type, <b>double-click empty canvas</b>. To switch tools, <b>hold the right mouse button and flick</b> (or <b>long-press</b> on a phone) to open the wheel, then tap one. On a phone, drag with <b>two fingers</b> to pan and pinch to zoom.">想写字：<b>双击空白处</b>打字。想换工具：电脑上<b>按住右键转一圈松开</b>，手机<b>长按一下</b>会出现转盘，点一下就换好。</div></div><div class="man-step"><span class="n">3</span><div class="t" data-zh="不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。" data-en="No save button — <b>every edit is stored automatically</b>, and it is still there next time in the same browser.">不用点保存。<b>每改一次自动存</b>，关掉网页再打开还在（同一个浏览器）。</div></div>      <div class="man-tip" data-zh="先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。" data-en="One thing to remember: your drawing lives in <b>this device's browser</b>. To use it elsewhere you move it — see block 2.">先记住一句：画的内容存在「这台设备的浏览器」里，换设备要自己搬，下面第二块讲怎么搬。</div>
     </div>
+    <div class="man-card">
+      <div class="man-h"><span class="man-badge">★</span><span class="man-title" data-zh="怎么操作：先看你在用哪一端" data-en="How to use it: pick your device">怎么操作：先看你在用哪一端</span></div>
+
+      <div class="man-dev">
+        <div class="man-dev-h web" data-zh="🖥 Web 端（电脑 + 鼠标键盘）" data-en="🖥 Web (computer with mouse and keyboard)">🖥 Web 端（电脑 + 鼠标键盘）</div>
+        <div class="man-step"><span class="n">1</span><div class="t" data-zh="换工具：<b>按住右键在画布上转一圈松开</b>，转盘停在哪个就换哪个；也可以直接按键盘 <b>V</b> 选择 / <b>H</b> 抓手 / <b>N</b> 便签 / <b>R</b> 容器 / <b>T</b> 文字 / <b>E</b> 箭头。" data-en="Switch tools: <b>hold the right button and flick around</b>, then release on the tool you want — or press <b>V</b> select / <b>H</b> hand / <b>N</b> note / <b>R</b> frame / <b>T</b> text / <b>E</b> arrow.">换工具：<b>按住右键在画布上转一圈松开</b>，转盘停在哪个就换哪个；也可以直接按键盘 <b>V</b> 选择 / <b>H</b> 抓手 / <b>N</b> 便签 / <b>R</b> 容器 / <b>T</b> 文字 / <b>E</b> 箭头。</div></div>
+        <div class="man-step"><span class="n">2</span><div class="t" data-zh="移动画布：<b>按住空格拖动</b>；缩放：<b>Ctrl + 滚轮</b>（Mac 用 Cmd），或点右下角 − / +。" data-en="Move the canvas: <b>hold Space and drag</b>. Zoom: <b>Ctrl + wheel</b> (Cmd on Mac), or use − / + bottom-right.">移动画布：<b>按住空格拖动</b>；缩放：<b>Ctrl + 滚轮</b>（Mac 用 Cmd），或点右下角 − / +。</div></div>
+        <div class="man-step"><span class="n">3</span><div class="t" data-zh="往下长一层：选中便签后，它右上角会浮出 <b>「+ 下一级」</b>，第二级开始还会多一个 <b>「= 同级」</b>；快捷键 <b>Tab</b> = 下一级，<b>Enter</b> = 同级。" data-en="Grow deeper: select a note and <b>“+ Child”</b> appears at its top-right — from level 2 there is also <b>“= Sibling”</b>. Keys: <b>Tab</b> = child, <b>Enter</b> = sibling.">往下长一层：选中便签后，它右上角会浮出 <b>「+ 下一级」</b>，第二级开始还会多一个 <b>「= 同级」</b>；快捷键 <b>Tab</b> = 下一级，<b>Enter</b> = 同级。</div></div>
+        <div class="man-step"><span class="n">4</span><div class="t" data-zh="快速复制：<b>按住 Ctrl 拖动</b>（Mac 用 Cmd）就是复制，而且连线和关系一起复制；容器连里面的内容一起带走。" data-en="Quick copy: <b>drag while holding Ctrl</b> (Cmd on Mac) duplicates — links come along, and a frame brings its contents.">快速复制：<b>按住 Ctrl 拖动</b>（Mac 用 Cmd）就是复制，而且连线和关系一起复制；容器连里面的内容一起带走。</div></div>
+        <div class="man-step"><span class="n">5</span><div class="t" data-zh="做连线：把箭头两端的<b>圆点拖到元素边缘</b>就会连上；<b>双击线中间</b>可以写红色说明。" data-en="Links: drag the <b>end dots</b> of an arrow onto an element to connect; <b>double-click the middle</b> to add a red label.">做连线：把箭头两端的<b>圆点拖到元素边缘</b>就会连上；<b>双击线中间</b>可以写红色说明。</div></div>
+        <div class="man-step"><span class="n">6</span><div class="t" data-zh="导出：点右下角缩放条左边的<b>下载图标</b>，可选「整个画板 / 仅选中」，再选 PNG / SVG / 文本 / 备份。" data-en="Export: tap the <b>download icon</b> left of the bottom-right zoom bar, choose “whole board / selection only”, then PNG / SVG / text / backup.">导出：点右下角缩放条左边的<b>下载图标</b>，可选「整个画板 / 仅选中」，再选 PNG / SVG / 文本 / 备份。</div></div>
+      </div>
+
+      <div class="man-dev">
+        <div class="man-dev-h touch" data-zh="📱 移动端（手机 / 平板，触屏）" data-en="📱 Mobile (phone or tablet, touch)">📱 移动端（手机 / 平板，触屏）</div>
+        <div class="man-step"><span class="n">1</span><div class="t" data-zh="换工具：<b>在画布上长按一下（约半秒）</b>会弹出转盘，松开后点你想用的工具即可。" data-en="Switch tools: <b>long-press the canvas</b> (about half a second) to open the wheel, then tap the tool.">换工具：<b>在画布上长按一下（约半秒）</b>会弹出转盘，松开后点你想用的工具即可。</div></div>
+        <div class="man-step"><span class="n">2</span><div class="t" data-zh="移动 / 缩放：<b>单指拖动是拖着元素走</b>，空白处单指拖动画布；<b>双指拖动平移，双指捏合缩放</b>。" data-en="Move / zoom: a <b>single finger drags the element</b>; two fingers pan, and pinch zooms.">移动 / 缩放：<b>单指拖动是拖着元素走</b>，空白处单指拖动画布；<b>双指拖动平移，双指捏合缩放</b>。</div></div>
+        <div class="man-step"><span class="n">3</span><div class="t" data-zh="往下长一层：选中便签后，右上角浮出 <b>「+ 下一级」</b>，第二级起多一个 <b>「= 同级」</b>，<b>直接点按钮</b>就行，手机上不显示快捷键字样。" data-en="Grow deeper: select a note and tap <b>“+ Child”</b> at its top-right; from level 2 there is also <b>“= Sibling”</b>.">往下长一层：选中便签后，右上角浮出 <b>「+ 下一级」</b>，第二级起多一个 <b>「= 同级」</b>，<b>直接点按钮</b>就行，手机上不显示快捷键字样。</div></div>
+        <div class="man-step"><span class="n">4</span><div class="t" data-zh="复制：手机上没有 Ctrl，用<b>转盘里的「复制一份」</b>，连线和容器里的内容都会跟着复制。" data-en="Copy on mobile: no Ctrl key — use <b>“Duplicate” in the wheel</b>; links and frame contents come along.">复制：手机上没有 Ctrl，用<b>转盘里的「复制一份」</b>，连线和容器里的内容都会跟着复制。</div></div>
+        <div class="man-step"><span class="n">5</span><div class="t" data-zh="改字 / 看图：<b>双击便签</b>进入编辑，<b>双击图片</b>重新裁剪；编辑时键盘会弹出来，点空白处收键盘。" data-en="Edit text / images: <b>double-tap a note</b> to type, <b>double-tap an image</b> to re-crop.">改字 / 看图：<b>双击便签</b>进入编辑，<b>双击图片</b>重新裁剪；编辑时键盘会弹出来，点空白处收键盘。</div></div>
+        <div class="man-step"><span class="n">6</span><div class="t" data-zh="导出：右下角缩放条左边的<b>下载图标</b>，同样可选「整个画板 / 仅选中」。" data-en="Export: same <b>download icon</b> left of the zoom bar, with “whole board / selection only”.">导出：右下角缩放条左边的<b>下载图标</b>，同样可选「整个画板 / 仅选中」。</div></div>
+      </div>
+    </div>
+
     <div class="man-card">
       <div class="man-h"><span class="man-badge">2</span><span class="man-title" data-zh="让手机和电脑是同一份画板" data-en="One board on every device">让手机和电脑是同一份画板</span><span class="man-sub" data-zh="二选一" data-en="Pick one">二选一</span></div>
       <div class="man-lead" data-zh="两种办法，<b>用手机就选 A，只用电脑就选 B</b>。两个都做也行，但会各存一份。" data-en="Two ways: use <b>A if you also draw on a phone, B if you only use a computer</b>. You can do both, but each keeps its own copy.">两种办法，<b>用手机就选 A，只用电脑就选 B</b>。两个都做也行，但会各存一份。</div>
@@ -4212,17 +4245,19 @@ function handleTouchDoubleTap(e){
   return false;
 }
 cv.addEventListener("pointerup", function(e){
+  /* 先把这根手指从触摸表里摘掉，避免提前 return 留下“幽灵手指”让下一根单指误判成双指 */
+  var wasPinch = pinch;
+  if(e.pointerType === "touch"){
+    delete touchPts[e.pointerId];
+    if(Object.keys(touchPts).length < 2) pinch = null;
+  }
   if(handleTouchDoubleTap(e)){ drag = null; return; }
   if(pendingEditId){
     var pe0 = elById(pendingEditId);
     pendingEditId = null;
     if(pe0 && !state.editing) openEditor(pe0);
   }
-  if(e.pointerType === "touch"){
-    delete touchPts[e.pointerId];
-    if(Object.keys(touchPts).length < 2) pinch = null;
-    if(pinch) return;
-  }
+  if(wasPinch) return;
   clearTimeout(touchTimer);
   touchOrigin = null;
   if(touchRadialOpen){
@@ -5256,7 +5291,7 @@ function nodeOpsEl(){
   if(TOUCH_UI){
     var spans = box.querySelectorAll("button span");
     for(var si = 0; si < spans.length; si++) spans[si].style.display = "none";
-    box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "40px"; b3.style.fontSize = "13px"; b3.style.padding = "0 14px 0 10px"; });
+    box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "44px"; b3.style.fontSize = "14px"; b3.style.padding = "0 17px 0 11px"; });
     box.querySelectorAll("button i").forEach(function(i3){ i3.style.width = "24px"; i3.style.height = "24px"; i3.style.borderRadius = "12px"; });
   }
   return box;
@@ -5909,7 +5944,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-37";
+var APP_VERSION = "2026.11.08-38";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
