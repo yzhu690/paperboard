@@ -2212,6 +2212,15 @@ function pointSegDist(px, py, x1, y1, x2, y2){
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+function hitTestExcept(wx, wy, skipId){
+  var b = board();
+  var saved = b.elements;
+  b.elements = saved.filter(function(e){ return e.id !== skipId; });
+  var h = hitTest(wx, wy);
+  b.elements = saved;
+  return h;
+}
+
 function hitTest(wx, wy){
   var tol = 7 / cam.zoom;
   var b = board();
@@ -2225,7 +2234,8 @@ function hitTest(wx, wy){
       continue;
     }
     if(el.type === "line" || el.type === "arrow"){
-      if(pointSegDist(wx, wy, el.x1, el.y1, el.x2, el.y2) < Math.max(tol, 4)) return el;
+      var ee0 = arrowEnds(el);
+      if(pointSegDist(wx, wy, ee0.a.x, ee0.a.y, ee0.b.x, ee0.b.y) < Math.max(tol, 4)) return el;
       continue;
     }
     if(el.type === "freedraw"){
@@ -2332,6 +2342,7 @@ function draw(){
 
   if(!state.focus) drawSelectionOverlay();
   if(state.marquee && !state.focus) drawMarquee();
+  drawAlignGuides();
 }
 
 function drawGrid(v){
@@ -2542,26 +2553,28 @@ function connLabelFontSize(conn){
   else if(a && a.h) base = a.h;
   return Math.max(12, Math.min(44, Math.round(base * 0.25)));
 }
-function drawConnLabel(g, conn){
-  var fs = connLabelFontSize(conn);
+function drawMidLabel(mid, label, fs){
   ctx.save();
   ctx.font = "500 " + fs + "px 'Noto Sans SC','PingFang SC',sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  var lines = wrapLines(ctx, conn.label, Math.max(60, 320 / Math.max(0.2, cam.zoom)));
+  var lines = wrapLines(ctx, label, Math.max(60, 320 / Math.max(0.2, cam.zoom)));
   var lh = fs * 1.32;
-  var y0 = g.mid.y - (lines.length - 1) * lh / 2;
+  var y0 = mid.y - (lines.length - 1) * lh / 2;
   for(var i = 0; i < lines.length; i++){
     var txt = lines[i];
     var w = ctx.measureText(txt).width;
     var y = y0 + i * lh;
     ctx.fillStyle = "rgba(255,255,255,.92)";
-    roundRect(ctx, g.mid.x - w / 2 - 4, y - lh / 2, w + 8, lh, 4);
+    roundRect(ctx, mid.x - w / 2 - 4, y - lh / 2, w + 8, lh, 4);
     ctx.fill();
     ctx.fillStyle = "#d2503c";
-    ctx.fillText(txt, g.mid.x, y);
+    ctx.fillText(txt, mid.x, y);
   }
   ctx.restore();
+}
+function drawConnLabel(g, conn){
+  drawMidLabel(g.mid, conn.label, connLabelFontSize(conn));
 }
 
 /* ---- 卡片绘制 ---- */
@@ -2857,26 +2870,22 @@ function drawElement(el){
     return;
   }
   if(el.type === "line" || el.type === "arrow"){
-    ctx.strokeStyle = el.stroke || "#1F2125";
-    ctx.lineWidth = el.strokeWidth || 1.8;
-    var dashed = el.dash === "dashed";
-    ctx.setLineDash(dashed ? [9 / cam.zoom, 7 / cam.zoom] : []);
+    var stL = styleOf(el);
+    var ee = arrowEnds(el);
+    ctx.strokeStyle = stL.stroke || "#1F2125";
+    ctx.lineWidth = stL.width || 1.8;
+    ctx.setLineDash(stL.dash === "dashed" ? [9 / cam.zoom, 7 / cam.zoom] : []);
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(el.x1, el.y1);
-    ctx.lineTo(el.x2, el.y2);
+    ctx.moveTo(ee.a.x, ee.a.y);
+    ctx.lineTo(ee.b.x, ee.b.y);
     ctx.stroke();
-    if(el.type === "arrow"){
-      var ang = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
-      var segLen = Math.hypot(el.x2 - el.x1, el.y2 - el.y1);
-      var head = Math.min(9 + (el.strokeWidth || 1.8) * 1.6, segLen * 0.6);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(el.x2 - head * Math.cos(ang - 0.46), el.y2 - head * Math.sin(ang - 0.46));
-      ctx.lineTo(el.x2, el.y2);
-      ctx.lineTo(el.x2 - head * Math.cos(ang + 0.46), el.y2 - head * Math.sin(ang + 0.46));
-      ctx.stroke();
+    ctx.setLineDash([]);
+    drawTip(ee.a.x, ee.a.y, Math.atan2(ee.a.y - ee.b.y, ee.a.x - ee.b.x), stL.start, stL);
+    drawTip(ee.b.x, ee.b.y, Math.atan2(ee.b.y - ee.a.y, ee.b.x - ee.a.x), stL.end, stL);
+    if(el.label){
+      var midA = { x:(ee.a.x + ee.b.x) / 2, y:(ee.a.y + ee.b.y) / 2 };
+      drawMidLabel(midA, el.label, connLabelFontSize(el));
     }
     ctx.setLineDash([]);
     return;
@@ -2912,14 +2921,71 @@ function drawElement(el){
   }
 }
 
+function endDotsOf(el){
+  if(!el) return null;
+  if(el.type === "connector"){
+    var g = connGeom(el);
+    return g ? [{ x:g.p1.x, y:g.p1.y }, { x:g.p2.x, y:g.p2.y }] : null;
+  }
+  if(el.type === "line" || el.type === "arrow"){
+    var ee = arrowEnds(el);
+    return [{ x:ee.a.x, y:ee.a.y }, { x:ee.b.x, y:ee.b.y }];
+  }
+  return null;
+}
+function drawEndDots(el){
+  var pts = endDotsOf(el);
+  if(!pts) return;
+  ctx.save();
+  pts.forEach(function(p){
+    var sp0 = toScreen(p.x, p.y);
+    ctx.beginPath();
+    ctx.arc(sp0.x, sp0.y, 5.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = "#1f3a5f";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(sp0.x, sp0.y, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = "#1f3a5f";
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
 function drawSelectionOverlay(){
   if(!state.selection.length) return;
   var b = board();
   var els = b.elements.filter(function(el){ return state.selection.indexOf(el.id) >= 0; });
   if(!els.length) return;
+  if(els.length === 1) drawEndDots(els[0]);
 
   var conns = els.filter(function(e){ return e.type === "connector"; });
   conns.forEach(function(cn){ var g = connGeom(cn); if(g) drawBendHandle(g); });
+
+  /* 直线 / 箭头 / 连线：选中后头尾各出现一个可拖动的圆点 */
+  function endDot(pt, hot){
+    var sp = toScreen(pt.x, pt.y);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, 5.5, 0, Math.PI * 2);
+    ctx.fillStyle = hot ? "var(--accent)" : "#ffffff";
+    ctx.fillStyle = hot ? "#d8e44c" : "#ffffff";
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = "#1f3a5f";
+    ctx.stroke();
+    ctx.restore();
+  }
+  els.forEach(function(el){
+    if(el.type === "connector"){
+      var g2 = connGeom(el);
+      if(g2){ endDot(g2.p1, false); endDot(g2.p2, false); }
+    } else if(el.type === "line" || el.type === "arrow"){
+      var e2 = arrowEnds(el);
+      endDot(e2.a, false); endDot(e2.b, false);
+    }
+  });
   var solid = els.filter(function(e){ return e.type !== "connector"; });
   if(!solid.length) return;
 
@@ -2931,6 +2997,29 @@ function drawSelectionOverlay(){
   ctx.lineWidth = 1.3;
   ctx.setLineDash([]);
   ctx.strokeRect(p1.x - 1, p1.y - 1, p2.x - p1.x + 2, p2.y - p1.y + 2);
+  if(drag && drag.mode === "endpt" && drag.pt && drag.el){
+    var other = null;
+    if(drag.el.type === "connector"){
+      var gD = connGeom(drag.el);
+      if(gD) other = drag.which === "a" ? gD.p2 : gD.p1;
+    } else {
+      var eD = arrowEnds(drag.el);
+      other = drag.which === "a" ? eD.b : eD.a;
+    }
+    if(other){
+      var s1 = toScreen(other.x, other.y), s2 = toScreen(drag.pt.x, drag.pt.y);
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = drag.target ? "#d8e44c" : "rgba(31,58,95,.55)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(s1.x, s1.y);
+      ctx.lineTo(s2.x, s2.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   if(solid.length === 1 && !["line","arrow","freedraw"].includes(solid[0].type)){
     var hs = handlePositions(p1, p2);
     ctx.fillStyle = "#ffffff";
@@ -2949,6 +3038,68 @@ function handlePositions(p1, p2){
     { x:p2.x, y:my, k:"e" }, { x:p2.x, y:p2.y, k:"se" }, { x:mx, y:p2.y, k:"s" },
     { x:p1.x, y:p2.y, k:"sw" }, { x:p1.x, y:my, k:"w" }
   ];
+}
+
+var alignGuides = [];
+function alignCandidates(){
+  var pool = [];
+  board().elements.forEach(function(el){
+    if(state.selection.indexOf(el.id) >= 0) return;
+    if(el.type === "connector" || el.type === "line" || el.type === "arrow" || el.type === "freedraw") return;
+    var bb = bboxEl(el);
+    if(!bb || (!bb.w && !bb.h)) return;
+    pool.push(bb);
+  });
+  return pool;
+}
+/* 拖动或缩放时，贴近其它元素边线就吸附，并画红色细参考线 */
+function applyAlignSnap(box, snapStrength){
+  alignGuides = [];
+  var tol = 6 / cam.zoom;
+  var pool = alignCandidates();
+  if(!pool.length) return { dx: 0, dy: 0 };
+  var edgesX = [box.x, box.x + box.w / 2, box.x + box.w];
+  var edgesY = [box.y, box.y + box.h / 2, box.y + box.h];
+  var bestDx = null, gx = null, bestDy = null, gy = null;
+  pool.forEach(function(ob){
+    var candX = [ob.x, ob.x + ob.w / 2, ob.x + ob.w];
+    var candY = [ob.y, ob.y + ob.h / 2, ob.y + ob.h];
+    edgesX.forEach(function(ex){
+      candX.forEach(function(cx){
+        var d = cx - ex;
+        if(Math.abs(d) <= tol && (!bestDx || Math.abs(d) < Math.abs(bestDx))){ bestDx = d; gx = cx; }
+      });
+    });
+    edgesY.forEach(function(ey){
+      candY.forEach(function(cy){
+        var d = cy - ey;
+        if(Math.abs(d) <= tol && (!bestDy || Math.abs(d) < Math.abs(bestDy))){ bestDy = d; gy = cy; }
+      });
+    });
+  });
+  var dx = 0, dy = 0;
+  if(bestDx !== null){ gx = Math.round(gx * 100) / 100; alignGuides.push({ v: gx }); dx = snapStrength ? bestDx : 0; }
+  if(bestDy !== null){ gy = Math.round(gy * 100) / 100; alignGuides.push({ h: gy }); dy = snapStrength ? bestDy : 0; }
+  return { dx: dx, dy: dy };
+}
+function drawAlignGuides(){
+  if(!alignGuides.length || !drag) return;
+  var v = viewSize();
+  ctx.save();
+  ctx.strokeStyle = "#d2503c";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  alignGuides.forEach(function(g){
+    if(g.v !== undefined){
+      var sx = toScreen(g.v, 0).x + 0.5;
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, v.h); ctx.stroke();
+    }
+    if(g.h !== undefined){
+      var sy = toScreen(0, g.h).y + 0.5;
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(v.w, sy); ctx.stroke();
+    }
+  });
+  ctx.restore();
 }
 
 function drawMarquee(){
@@ -3072,12 +3223,74 @@ function mkPath(x, y){
 }
 function mkLine(type, x, y){
   var d = (state.settings && state.settings.conn) || {};
+  var st = {
+    stroke: d.stroke || "#1F2125",
+    width: d.width || 1.8,
+    dash: d.dash || "solid",
+    start: d.start || "none",
+    end: type === "arrow" ? "arrow" : "none"
+  };
   return {
     id:uid(), type:type, x1:x, y1:y, x2:x, y2:y,
-    stroke: d.stroke || "#1F2125",
-    strokeWidth: d.width || 1.8,
-    dash: d.dash || "solid"
+    stroke: st.stroke, strokeWidth: st.width, dash: st.dash,
+    style: st, from: null, to: null
   };
+}
+
+/* 连线 / 直线 / 箭头共用同一套样式；老元素自动迁移 */
+function styleOf(el){
+  if(!el.style){
+    var d = state.settings.conn || {};
+    el.style = {
+      stroke: el.stroke || d.stroke || "#1F2125",
+      width: el.strokeWidth || d.width || 1.8,
+      dash: el.dash || d.dash || "solid",
+      start: el.start || d.start || "none",
+      end: el.end || (el.type === "arrow" ? "arrow" : (d.end || "none"))
+    };
+  }
+  return el.style;
+}
+
+/* 直线的两端：粘在元素上就跟着元素走，否则用存下来的坐标 */
+function arrowEnds(el){
+  var a = { x: el.x1, y: el.y1 }, b = { x: el.x2, y: el.y2 };
+  var fa = el.from ? elById(el.from) : null;
+  var fb = el.to ? elById(el.to) : null;
+  if(fa){
+    var ra = bboxEl(fa);
+    var tb = fb ? (function(r){ return { x:r.x + r.w/2, y:r.y + r.h/2 }; })(bboxEl(fb)) : b;
+    a = anchorPoint(ra, tb.x, tb.y);
+  }
+  if(fb){
+    var rb2 = bboxEl(fb);
+    var ca2 = fa ? (function(r){ return { x:r.x + r.w/2, y:r.y + r.h/2 }; })(bboxEl(fa)) : a;
+    b = anchorPoint(rb2, ca2.x, ca2.y);
+  }
+  return { a:a, b:b };
+}
+
+/* 两端都粘住元素 → 升级成真正的连线（可调曲度、可写说明） */
+function upgradeArrowToConnector(el){
+  if(!el || (el.type !== "line" && el.type !== "arrow")) return el;
+  if(!el.from || !el.to) return el;
+  var o = { id: el.id, type:"connector", from: el.from, to: el.to, bend: el.bend || 0,
+            style: Object.assign({}, styleOf(el)), label: el.label };
+  var i = board().elements.indexOf(el);
+  if(i >= 0) board().elements[i] = o;
+  return o;
+}
+function downgradeConnectorToArrow(conn, freeWhich, pt){
+  var g = connGeom(conn);
+  var o = { id: conn.id, type:"arrow", x1: g ? g.p1.x : pt.x, y1: g ? g.p1.y : pt.y,
+            x2: g ? g.p2.x : pt.x, y2: g ? g.p2.y : pt.y,
+            style: Object.assign({}, conn.style || state.settings.conn), label: conn.label,
+            from: conn.from, to: conn.to };
+  if(freeWhich === "from"){ o.from = null; o.x1 = pt.x; o.y1 = pt.y; }
+  else { o.to = null; o.x2 = pt.x; o.y2 = pt.y; }
+  var i = board().elements.indexOf(conn);
+  if(i >= 0) board().elements[i] = o;
+  return o;
 }
 
 /* ---- 连线 ---- */
@@ -3444,6 +3657,21 @@ cv.addEventListener("pointerdown", function(e){
 
 
   if(state.tool === "select"){
+    /* 单个选中元素：先判断是否抓取它的两个端点圆点 */
+    if(state.selection.length === 1){
+      var selE0 = elById(state.selection[0]);
+      var pts0 = endDotsOf(selE0);
+      if(pts0){
+        for(var qi = 0; qi < 2; qi++){
+          var sc0 = toScreen(pts0[qi].x, pts0[qi].y);
+          if(Math.hypot(sp.x - sc0.x, sp.y - sc0.y) < 10){
+            drag = { mode:"endpt", el: selE0, which: qi === 0 ? "a" : "b" };
+            cv.style.cursor = "grabbing";
+            return;
+          }
+        }
+      }
+    }
     /* 已选中连线时，先判断是否抓取曲度控制点 */
     if(state.selection.length === 1){
       var selC = elById(state.selection[0]);
@@ -3455,6 +3683,20 @@ cv.addEventListener("pointerdown", function(e){
             drag = { mode:"bend", conn:selC };
             return;
           }
+        }
+      }
+    }
+    /* 先看有没有点到已选中线条的头尾圆点 */
+    if(state.selection.length === 1){
+      var selL = elById(state.selection[0]);
+      if(selL && (selL.type === "connector" || selL.type === "line" || selL.type === "arrow")){
+        var endsL = null;
+        if(selL.type === "connector"){ var gc = connGeom(selL); endsL = gc ? { a:gc.p1, b:gc.p2 } : null; }
+        else endsL = arrowEnds(selL);
+        if(endsL){
+          var sa = toScreen(endsL.a.x, endsL.a.y), sb = toScreen(endsL.b.x, endsL.b.y);
+          if(Math.hypot(sp.x - sa.x, sp.y - sa.y) <= 11){ drag = { mode:"endpt", el:selL, which:"a", pt:wp }; return; }
+          if(Math.hypot(sp.x - sb.x, sp.y - sb.y) <= 11){ drag = { mode:"endpt", el:selL, which:"b", pt:wp }; return; }
         }
       }
     }
@@ -3609,6 +3851,28 @@ cv.addEventListener("pointermove", function(e){
     requestRender(); return;
   }
 
+  if(drag.mode === "endpt"){
+    drag.pt = wp;
+    var eE = drag.el;
+    if(eE.type === "line" || eE.type === "arrow"){
+      if(drag.which === "a"){ eE.x1 = wp.x; eE.y1 = wp.y; delete eE.from; }
+      else { eE.x2 = wp.x; eE.y2 = wp.y; delete eE.to; }
+    }
+    requestRender();
+    return;
+  }
+
+  if(drag.mode === "endpt"){
+    drag.pt = wp;
+    drag.target = hitTestExcept(wp.x, wp.y, drag.el.id);
+    if(drag.el.type === "line" || drag.el.type === "arrow"){
+      if(drag.which === "a"){ drag.el.x1 = wp.x; drag.el.y1 = wp.y; }
+      else { drag.el.x2 = wp.x; drag.el.y2 = wp.y; }
+    }
+    requestRender();
+    return;
+  }
+
   if(drag.mode === "bend"){
     var gB = connGeom(drag.conn);
     if(gB){
@@ -3633,6 +3897,25 @@ cv.addEventListener("pointermove", function(e){
         el.x = o.x + dx; el.y = o.y + dy;
       }
     });
+    /* 边线对齐吸附：先算整体包围盒，再整体微调 */
+    var moved = board().elements.filter(function(x3){ return drag.snap[x3.id]; });
+    var mbox = unionBox(moved);
+    var snap = applyAlignSnap(mbox, true);
+    if(snap.dx || snap.dy){
+      Object.keys(drag.snap).forEach(function(id2){
+        var e2 = board().elements.filter(function(x4){ return x4.id === id2; })[0];
+        var o3 = drag.snap[id2];
+        if(!e2) return;
+        if(e2.type === "line" || e2.type === "arrow"){
+          e2.x1 = o3.x1 + dx + snap.dx; e2.y1 = o3.y1 + dy + snap.dy;
+          e2.x2 = o3.x2 + dx + snap.dx; e2.y2 = o3.y2 + dy + snap.dy;
+        } else if(e2.type === "freedraw"){
+          e2.points = o3.points.map(function(p){ return { x:p.x + dx + snap.dx, y:p.y + dy + snap.dy }; });
+        } else {
+          e2.x = o3.x + dx + snap.dx; e2.y = o3.y + dy + snap.dy;
+        }
+      });
+    }
     requestRender(); return;
   }
 
@@ -3808,7 +4091,39 @@ cv.addEventListener("pointerup", function(e){
       drag.el.points = chaikin(drag.el.points, 2);
       historyPush(); state.selection = [drag.el.id]; setTool("select");
     }
-  } else if(drag.mode === "move" || drag.mode === "resize" || drag.mode === "erase" || drag.mode === "bend"){
+  } else if(drag.mode === "endpt"){
+    var dE = drag.el, dW = drag.pt || toWorld(sp.x, sp.y);
+    var target = hitTest(dW.x, dW.y);
+    var excludeSelf = function(t){ return t && t.id !== dE.id; };
+    var tgt = excludeSelf(target) ? target : null;
+
+    if(dE.type === "connector"){
+      var otherId = drag.which === "a" ? dE.to : dE.from;
+      if(tgt){
+        if(drag.which === "a") dE.from = tgt.id; else dE.to = tgt.id;
+        if(!elById(dE.from) || !elById(dE.to)){ /* 另一头失效就不动 */ }
+      } else {
+        var freeId = drag.which === "a" ? dE.from : dE.to;
+        if(freeId !== otherId){
+          /* 这头本来就连着别人，现在拖到空白 → 变回自由端箭头 */
+          downgradeConnectorToArrow(dE, drag.which === "a" ? "from" : "to", dW);
+        }
+      }
+      state.selection = [dE.id];
+    } else if(dE.type === "line" || dE.type === "arrow"){
+      if(tgt){
+        if(drag.which === "a") dE.from = tgt.id; else dE.to = tgt.id;
+      }
+      /* 两端都吸住了 → 升级为正式连线（可调曲度 / 可写说明） */
+      var upgraded = upgradeArrowToConnector(dE);
+      if(upgraded !== dE){
+        var gu = connGeom(upgraded);
+        if(gu){ /* 让新连线从原来的位置开始，不被重排 */ }
+        state.selection = [upgraded.id];
+        toast("已连接到元素，变成可调曲度的连线");
+      }
+    }
+    drag.pt = null;
     historyPush();
   } else if(drag.mode === "marquee"){
     var box = state.marquee;
@@ -3824,6 +4139,7 @@ cv.addEventListener("pointerup", function(e){
   }
 
   drag = null;
+  alignGuides = [];
   cv.style.cursor = cursorFor(state.tool);
   requestRender();
   syncUI();
@@ -3869,8 +4185,7 @@ cv.addEventListener("dblclick", function(e){
     openCrop(hit);
     return;
   }
-  if(hit && hit.type === "connector"){
-    var seg = connGeom(hit);
+  if(hit && (hit.type === "connector" || hit.type === "line" || hit.type === "arrow")){
     state.selection = [hit.id];
     syncUI();
     askInputBox("连线说明", "给这条线写一句说明，会显示在线的中间（红色小字）。", "例如：因为…", hit.label || "", "写入").then(function(txt){
@@ -4051,7 +4366,17 @@ function duplicateWithLinks(ids, dx, dy){
   dx = dx || 0; dy = dy || 0;
   var picked = board().elements.filter(function(el){ return ids.indexOf(el.id) >= 0 && el.type !== "connector"; });
   var map = {};
-  var copies = picked.map(function(el){
+  /* 容器：连内部元素一起复制 */
+  var extra = [];
+  picked.forEach(function(el){
+    if(el.type !== "frame") return;
+    frameChildren(el).forEach(function(k){
+      if(ids.indexOf(k.id) >= 0) return;
+      if(k.type === "connector") return;
+      extra.push(k);
+    });
+  });
+  var copies = picked.concat(extra).map(function(el){
     var c = clone(el);
     c.id = uid();
     if(c.type === "line" || c.type === "arrow"){ c.x1 += dx; c.y1 += dy; c.x2 += dx; c.y2 += dy; }
@@ -4072,23 +4397,14 @@ function duplicateWithLinks(ids, dx, dy){
     copies.push(c);
   });
   copies.forEach(function(c){ board().elements.push(c); });
+  state.selection = copies.filter(function(c){ return c.type !== "connector"; }).map(function(c){ return c.id; });
   return copies;
 }
 
 function duplicateSelection(){
-  var picked = board().elements.filter(function(el){ return state.selection.indexOf(el.id) >= 0; });
-  if(!picked.length) return;
-  var copies = picked.map(function(el){
-    var c = clone(el);
-    c.id = uid();
-    if(c.type === "line" || c.type === "arrow"){ c.x1 += 24; c.y1 += 24; c.x2 += 24; c.y2 += 24; }
-    else if(c.type === "freedraw"){ c.points = c.points.map(function(p){ return { x:p.x + 24, y:p.y + 24 }; }); }
-    else { c.x += 24; c.y += 24; }
-    return c;
-  });
-  copies.forEach(function(c){ board().elements.push(c); });
-  state.selection = copies.map(function(c){ return c.id; });
-  historyPush(); requestRender(); syncUI();
+  if(!state.selection.length) return;
+  var copies = duplicateWithLinks(state.selection.slice(), 24, 24);
+  historyPush(); requestRender(); syncUI(); scheduleSave();
 }
 
 function pasteClipboard(){
@@ -4705,7 +5021,8 @@ function syncUI(){
   }
 
   var selConns = board().elements.filter(function(el){
-    return state.selection.indexOf(el.id) >= 0 && el.type === "connector";
+    return state.selection.indexOf(el.id) >= 0 &&
+      (el.type === "connector" || el.type === "line" || el.type === "arrow");
   });
   syncConnPanel(selConns);
   syncFrameSeq();
@@ -4743,9 +5060,9 @@ function buildConnPanel(){
     '<div class="cs-row"><span class="cs-k">' + tr("起点") + '</span>' + seg("start") + '</div>' +
     '<div class="cs-row"><span class="cs-k">' + tr("终点") + '</span>' + seg("end") + '</div>' +
     '<div class="cs-row"><span class="cs-k">' + tr("粗细") + '</span><div class="cs-seg" data-kind="width">' +
-      '<button type="button" class="cs-btn" data-width="1.2">1</button>' +
-      '<button type="button" class="cs-btn" data-width="1.8">2</button>' +
-      '<button type="button" class="cs-btn" data-width="3">3</button>' +
+      '<button type="button" class="cs-btn" data-width="1">细</button>' +
+      '<button type="button" class="cs-btn" data-width="3.4">中</button>' +
+      '<button type="button" class="cs-btn" data-width="7">粗</button>' +
     '</div></div>' +
     '<div class="cs-row"><span class="cs-k">' + tr("线型") + '</span><div class="cs-seg" data-kind="dash">' +
       '<button type="button" class="cs-btn" data-dash="solid">' + tr("实线") + '</button>' +
@@ -4761,42 +5078,32 @@ function buildConnPanel(){
     var t = e.target.closest("[data-tip],[data-width],[data-dash],[data-stroke],#csDefault");
     if(!t) return;
     var conns = board().elements.filter(function(el){
-      return state.selection.indexOf(el.id) >= 0 && el.type === "connector";
+      return state.selection.indexOf(el.id) >= 0 &&
+        (el.type === "connector" || el.type === "line" || el.type === "arrow");
     });
+    conns.forEach(function(c){ styleOf(c); });
     if(!conns.length) return;
 
     if(t.hasAttribute("data-tip")){
       var kind = t.parentElement.getAttribute("data-kind");
       var v = t.getAttribute("data-tip");
-      conns.forEach(function(c){
-        c.style = Object.assign({}, state.settings.conn, c.style || {});
-        c.style[kind] = v;
-      });
+      conns.forEach(function(c){ styleOf(c)[kind] = v; });
       historyPush(); requestRender(); syncUI(); scheduleSave();
     } else if(t.hasAttribute("data-width")){
       var wv = parseFloat(t.getAttribute("data-width"));
-      conns.forEach(function(c){
-        c.style = Object.assign({}, state.settings.conn, c.style || {});
-        c.style.width = wv;
-      });
+      conns.forEach(function(c){ styleOf(c).width = wv; });
       historyPush(); requestRender(); syncUI(); scheduleSave();
     } else if(t.hasAttribute("data-dash")){
       var dv = t.getAttribute("data-dash");
-      conns.forEach(function(c){
-        c.style = Object.assign({}, state.settings.conn, c.style || {});
-        c.style.dash = dv;
-      });
+      conns.forEach(function(c){ styleOf(c).dash = dv; });
       historyPush(); requestRender(); syncUI(); scheduleSave();
     } else if(t.hasAttribute("data-stroke")){
       var sc = t.getAttribute("data-stroke");
-      conns.forEach(function(c){
-        c.style = Object.assign({}, state.settings.conn, c.style || {});
-        c.style.stroke = sc;
-      });
+      conns.forEach(function(c){ styleOf(c).stroke = sc; });
       historyPush(); requestRender(); syncUI(); scheduleSave();
     } else if(t.id === "csDefault"){
       var one = conns[0];
-      state.settings.conn = Object.assign({}, state.settings.conn, one.style || {});
+      state.settings.conn = Object.assign({}, state.settings.conn, styleOf(one));
       idbSet("settings", { conn: state.settings.conn }).catch(function(){});
       toast("已存为默认连线样式");
     }
@@ -4812,7 +5119,7 @@ function syncConnPanel(conns){
   }
   buildConnPanel();
   box.classList.add("on");
-  var st = Object.assign({}, state.settings.conn, conns[0].style || {});
+  var st = Object.assign({}, state.settings.conn, styleOf(conns[0]));
   box.querySelectorAll(".cs-btn[data-tip]").forEach(function(b){
     var kind = b.parentElement.getAttribute("data-kind");
     b.classList.toggle("is-on", st[kind] === b.getAttribute("data-tip"));
@@ -5267,7 +5574,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-34";
+var APP_VERSION = "2026.11.08-35";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6140,7 +6447,7 @@ function setLang(l){
     buildConnPanel();
     if($("#connStyle").classList.contains("on")){
       syncConnPanel(board().elements.filter(function(el){
-        return state.selection.indexOf(el.id) >= 0 && el.type === "connector";
+        return state.selection.indexOf(el.id) >= 0 && (el.type === "connector" || el.type === "line" || el.type === "arrow");
       }));
     }
   }catch(err){}
