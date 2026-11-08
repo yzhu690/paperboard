@@ -3082,6 +3082,7 @@ function mindSibling(id){
 
 /* ---- 插图前的体积优化：目标单张 ≤200KB ---- */
 var IMG_LIMIT = 200 * 1024;
+var IMG_ALPHA_LIMIT = 400 * 1024;
 function dataUrlBytes(u){
   if(!u) return 0;
   var i = u.indexOf(",");
@@ -3103,16 +3104,44 @@ function encodeScaled(im, maxSide, q){
   var c = document.createElement("canvas");
   c.width = Math.round(w * k); c.height = Math.round(h * k);
   var x = c.getContext("2d");
-  x.fillStyle = "#ffffff";
-  x.fillRect(0, 0, c.width, c.height);
+  var type = (q === "png") ? "image/png" : "image/jpeg";
+  if(type === "image/jpeg"){ x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height); }
   x.drawImage(im, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", q);
+  return c.toDataURL(type, type === "image/png" ? undefined : q);
+}
+function imageHasAlpha(im){
+  try{
+    var w = Math.min(300, im.naturalWidth || im.width);
+    var h = Math.max(1, Math.round((im.naturalHeight || im.height) * w / (im.naturalWidth || im.width)));
+    var c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    var x = c.getContext("2d");
+    x.clearRect(0, 0, w, h);
+    x.drawImage(im, 0, 0, w, h);
+    var d = x.getImageData(0, 0, w, h).data;
+    for(var i = 3; i < d.length; i += 4){ if(d[i] < 245) return true; }
+  }catch(err){ return false; }
+  return false;
 }
 function optimizeImage(dataUrl){
   var before = dataUrlBytes(dataUrl);
   if(before <= IMG_LIMIT) return Promise.resolve({ url:dataUrl, before:before, after:before, small:false });
   return loadImgAsync(dataUrl).then(function(im){
     if(!im) return { url:dataUrl, before:before, after:before, small:false };
+    /* 带透明通道的图：转 JPEG 会丢透明，改成等比缩小 + 仍存 PNG，上限放宽到 400KB */
+    if(imageHasAlpha(im)){
+      var limit = IMG_ALPHA_LIMIT;
+      var pSides = [1600, 1400, 1200, 1000, 880, 720, 560];
+      var pBest = null;
+      for(var a = 0; a < pSides.length; a++){
+        var pu = encodeScaled(im, pSides[a], "png");
+        var pb = dataUrlBytes(pu);
+        if(!pBest || pb < pBest.bytes) pBest = { url:pu, bytes:pb };
+        if(pb <= limit) return { url:pu, before:before, after:pb, small:true, keepAlpha:true, limit:limit };
+      }
+      return { url:dataUrl, before:before, after:before, small:false, over:true, keepAlpha:true, limit:limit,
+               smallUrl:pBest.url, smallBytes:pBest.bytes };
+    }
     var sides = [1600, 1400, 1200, 1000], quals = [0.85, 0.75, 0.65, 0.55];
     var best = null;
     for(var i = 0; i < sides.length; i++){
@@ -3120,20 +3149,21 @@ function optimizeImage(dataUrl){
         var u = encodeScaled(im, sides[i], quals[j]);
         var b = dataUrlBytes(u);
         if(!best || b < best.bytes) best = { url:u, bytes:b };
-        if(b <= IMG_LIMIT) return { url:u, before:before, after:b, small:true };
+        if(b <= IMG_LIMIT) return { url:u, before:before, after:b, small:true, limit:IMG_LIMIT };
       }
     }
-    return { url:dataUrl, before:before, after:before, small:false, over:true, smallUrl:best.url, smallBytes:best.bytes };
+    return { url:dataUrl, before:before, after:before, small:false, over:true, limit:IMG_LIMIT,
+             smallUrl:best.url, smallBytes:best.bytes };
   });
 }
 function pickImageData(dataUrl){
   return optimizeImage(dataUrl).then(function(r){
     if(!r.over){
-      if(r.small) toast("图片已压缩 " + kbSize(r.before) + " → " + kbSize(r.after));
+      if(r.small) toast("图片已压缩 " + kbSize(r.before) + " → " + kbSize(r.after) + (r.keepAlpha ? "（保留透明）" : ""));
       return r.url;
     }
-    return askConfirm("这张图压不到 200KB 以内",
-      "小图：" + kbSize(r.smallBytes) + "（压到最小，清晰度一般）；原图：" + kbSize(r.before) + "（更清晰，体积大）。",
+    return askConfirm("这张图压不到 " + kbSize(r.limit || IMG_LIMIT) + " 以内",
+      (r.keepAlpha ? "小图：" : "小图：") + kbSize(r.smallBytes) + "（压到最小，清晰度一般）；原图：" + kbSize(r.before) + "（更清晰，体积大）。",
       "用小图").then(function(useSmall){
         toast(useSmall ? ("已使用小图 " + kbSize(r.smallBytes)) : ("保留原图 " + kbSize(r.before)));
         return useSmall ? r.smallUrl : dataUrl;
@@ -4911,7 +4941,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-25";
+var APP_VERSION = "2026.11.08-26";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5520,6 +5550,7 @@ var I18N_EN = {
   "滚轮": "Wheel",
   "平移画布；Ctrl + 滚轮＝缩放": "Scroll to pan; Ctrl + scroll to zoom",
   "图片已压缩 ": "Image compressed ",
+  "（保留透明）": " (transparency kept)",
   "这张图压不到 200KB 以内": "This image can\'t get under 200KB",
   "用小图": "Use the small one",
   "已使用小图 ": "Using the small one ",
