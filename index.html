@@ -1456,9 +1456,15 @@ create policy "own docs" on pb_docs
     <div class="login-title">登录到「纸面」</div>
     <div class="login-desc">验证一次，这台设备会被记住。云端口令登录后，数据会跟着账号在多台设备之间同步。</div>
     <div class="login-tabs">
-      <button type="button" id="loginTabCloud" class="login-tab is-on">邮箱</button>
-      <button type="button" id="loginTabPhone" class="login-tab">手机短信</button>
+      <button type="button" id="loginTabPwd" class="login-tab is-on">账号密码</button>
+      <button type="button" id="loginTabCloud" class="login-tab">验证码</button>
+      <button type="button" id="loginTabPhone" class="login-tab">短信</button>
       <button type="button" id="loginTabLocal" class="login-tab">本机</button>
+    </div>
+    <div id="loginPanePwd">
+      <input class="login-input" id="pwdEmail" type="email" placeholder="邮箱" autocomplete="username" style="width:100%;margin-bottom:10px">
+      <input class="login-input" id="pwdPass" type="password" placeholder="密码（首次登录会自动注册）" autocomplete="current-password" style="width:100%;margin-bottom:12px">
+      <button class="login-go" id="pwdGo" type="button" style="width:100%;display:block;background:#151a21;color:#fff">登录 / 注册</button>
     </div>
     <div id="loginPanePhone">
       <div class="cloud-mini">
@@ -1486,7 +1492,7 @@ create policy "own docs" on pb_docs
         <input class="login-input" id="cloudKeyLogin" type="text" placeholder="anon key（publishable）">
         <button class="btn" id="btnCloudSaveLogin" type="button" style="height:36px;width:100%">保存云端配置</button>
       </div>
-      <input class="login-input" id="cloudEmail" type="email" placeholder="邮箱" autocomplete="email" style="margin-bottom:10px">
+      <input class="login-input" id="cloudEmail" type="email" placeholder="邮箱" autocomplete="email" style="width:100%;margin-bottom:10px">
       <div class="login-code-row">
         <input class="login-input" id="cloudCode" type="text" maxlength="8" placeholder="邮件里的验证码" autocomplete="one-time-code">
         <button class="btn" id="cloudSend" type="button" style="height:38px;white-space:nowrap">发验证码</button>
@@ -5108,6 +5114,43 @@ async function cloudVerifySms(phone, token){
   return d.user;
 }
 
+function cloudAdoptSession(d, fallbackEmail){
+  if(!d || !d.access_token) throw new Error("登录失败，请检查邮箱与密码");
+  CLOUD.session = {
+    access_token: d.access_token,
+    refresh_token: d.refresh_token,
+    expires_at: d.expires_at,
+    user_id: (d.user && d.user.id) || "",
+    email: (d.user && (d.user.email || d.user.phone)) || (fallbackEmail || "")
+  };
+  cloudSave();
+  return d.user;
+}
+async function cloudPasswordAuth(email, password){
+  if(!cloudReady()) throw new Error("先填 Supabase 项目地址与 anon key");
+  var d = null;
+  try{
+    d = await cloudAuth("/auth/v1/token?grant_type=password", { email: email, password: password }, false);
+  }catch(err){
+    var m = String(err.message || "");
+    if(/invalid login credentials|invalid_grant|400/i.test(m)){
+      /* 账号不存在就自动注册一次 */
+      try{
+        d = await cloudAuth("/auth/v1/signup", { email: email, password: password }, false);
+      }catch(e2){
+        var m2 = String(e2.message || "");
+        if(/already registered|already been registered|User already/i.test(m2)){
+          throw new Error("这个邮箱之前用验证码登录过，没有密码。请切到「验证码」档登录一次");
+        }
+        throw e2;
+      }
+      if(!d || !d.access_token){ throw new Error("注册成功但需要邮箱确认，请到邮箱点确认链接后再登录"); }
+    } else {
+      throw err;
+    }
+  }
+  return cloudAdoptSession(d, email);
+}
 async function cloudVerifyOtp(email, token){
   var d = await cloudAuth("/auth/v1/verify", { type: "email", email: email, token: token }, false);
   if(!d || !d.access_token) throw new Error("验证失败，请检查验证码");
@@ -5324,27 +5367,45 @@ function afterCloudLogin(){
 }
 
 function wireCloudLogin(){
-  var tabP = $("#loginTabPhone"), tabE = $("#loginTabCloud"), tabL = $("#loginTabLocal");
-  var paneP = $("#loginPanePhone"), paneE = $("#loginPaneCloud"), paneL = $("#loginPaneLocal");
-  if(!tabP) return;
-  var gLocal = $("#loginGo"), gPhone = $("#phoneGo"), gEmail = $("#cloudGo");
+  var tabP = $("#loginTabPhone"), tabE = $("#loginTabCloud"), tabL = $("#loginTabLocal"), tabW = $("#loginTabPwd");
+  var paneP = $("#loginPanePhone"), paneE = $("#loginPaneCloud"), paneL = $("#loginPaneLocal"), paneW = $("#loginPanePwd");
+  if(!tabP || !tabW) return;
+  var gLocal = $("#loginGo"), gPhone = $("#phoneGo"), gEmail = $("#cloudGo"), gPwd = $("#pwdGo");
 
   var setTab = function(mode){
+    tabW.classList.toggle("is-on", mode === "pwd");
     tabP.classList.toggle("is-on", mode === "phone");
     tabE.classList.toggle("is-on", mode === "email");
     tabL.classList.toggle("is-on", mode === "local");
+    paneW.style.display = mode === "pwd" ? "" : "none";
     paneP.style.display = mode === "phone" ? "" : "none";
     paneE.style.display = mode === "email" ? "" : "none";
     paneL.style.display = mode === "local" ? "" : "none";
+    gPwd.style.display = mode === "pwd" ? "" : "none";
     gLocal.style.display = mode === "local" ? "" : "none";
     gPhone.style.display = mode === "phone" ? "" : "none";
     gEmail.style.display = mode === "email" ? "" : "none";
     setHint("");
   };
-  setTab("email");
+  setTab("pwd");
+  tabW.addEventListener("click", function(){ setTab("pwd"); });
   tabP.addEventListener("click", function(){ setTab("phone"); });
   tabE.addEventListener("click", function(){ setTab("email"); });
   tabL.addEventListener("click", function(){ setTab("local"); });
+
+  if(gPwd) gPwd.addEventListener("click", function(){
+    var em = $("#pwdEmail").value.trim(), pw = $("#pwdPass").value.trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ setHint("邮箱格式不对", false); return; }
+    if(pw.length < 6){ setHint("密码至少 6 位", false); return; }
+    gPwd.disabled = true; setHint("正在登录…");
+    cloudPasswordAuth(em, pw).then(function(){
+      setHint("登录成功，正在同步…", true);
+      afterCloudLogin();
+      toast("已登录云端，数据开始多端同步");
+    }).catch(function(err){
+      setHint(String(err && err.message || err), false);
+    }).then(function(){ gPwd.disabled = false; });
+  });
 
   var up = function(u, k, hintEl){
     var U = cloudNormalizeUrl(u.value), K = k.value.trim();
