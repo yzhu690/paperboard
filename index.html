@@ -2031,7 +2031,11 @@ function scheduleSave(){
   if(b) b.updatedAt = Date.now();
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(function(){
-    idbSet("doc", { boards: state.boards, activeId: state.activeId }).catch(function(){});
+    var payload = { boards: state.boards, activeId: state.activeId };
+    idbSet("doc", payload).catch(function(){});
+    try{ localStorage.setItem("pb-doc-ls", JSON.stringify(payload)); }catch(err){}
+    if(lastSavedDoc){ idbSet("docBak", lastSavedDoc).catch(function(){}); }
+    lastSavedDoc = payload;
     if(typeof cloudSchedulePush === "function") cloudSchedulePush();
     renderBoardList();
   }, 600);
@@ -4761,7 +4765,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-22";
+var APP_VERSION = "2026.11.08-23";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -4769,7 +4773,7 @@ function showUpdateChip(){
   b.type = "button";
   b.className = "update-chip";
   b.innerHTML = '<span class="uc-dot"></span>纸面有新版本<em>点此刷新</em>';
-  b.addEventListener("click", function(){ location.reload(); });
+  b.addEventListener("click", function(){ flushThenReload(); });
   document.body.appendChild(b);
 }
 function checkUpdate(){
@@ -4784,6 +4788,20 @@ function checkUpdate(){
       .catch(function(){});
   }catch(err){}
 }
+function flushDoc(done){
+  try{
+    var payload = { boards: state.boards, activeId: state.activeId };
+    var p = idbSet("doc", payload).catch(function(){});
+    try{ localStorage.setItem("pb-doc-ls", JSON.stringify(payload)); }catch(err){}
+    if(p && p.then) p.then(function(){ done && done(); }, function(){ done && done(); });
+    else if(done) done();
+  }catch(err){ done && done(); }
+}
+function flushThenReload(){
+  flushDoc(function(){
+    setTimeout(function(){ location.reload(); }, 120);
+  });
+}
 setTimeout(checkUpdate, 900);
 
 /* ---------------- 环形工具栏 ---------------- */
@@ -4792,6 +4810,7 @@ var radialOpen = false;
 var touchTimer = null;
 var touchOrigin = null;
 var pendingEditId = null;
+var lastSavedDoc = null;
 var touchPts = {};
 var pinch = null;
 var selBeforeTouch = null;
@@ -5848,7 +5867,9 @@ function cloudStartPolling(){
       var remoteAt = row.payload.updatedAt || 0;
       var localAt = (board() && board().updatedAt) || 0;
       var newest = state.boards.reduce(function(m, b){ return Math.max(m, b.updatedAt || 0); }, 0);
-      if(remoteAt > newest){
+      if(state.editing || drag || state.marquee) return;
+      if(remoteAt > newest + 4000){
+        idbSet("docBak", { boards: state.boards, activeId: state.activeId }).catch(function(){});
         state.boards = row.payload.boards || state.boards;
         state.activeId = row.payload.activeId || (state.boards[0] && state.boards[0].id);
         renderBoardList();
@@ -5870,7 +5891,12 @@ async function cloudAdopt(manual){
     if(manual){
       var goOn = await askConfirm("用云端覆盖本机？", "云端有 " + row.payload.boards.length + " 张画板，会替换掉本机当前内容。", "覆盖");
       if(!goOn) return false;
+    } else {
+      var remoteAt0 = row.payload.updatedAt || 0;
+      var localNewest0 = state.boards.reduce(function(m, b0){ return Math.max(m, b0.updatedAt || 0); }, 0);
+      if(localNewest0 > remoteAt0) return false;   /* 本机更新，别被云端旧副本覆盖 */
     }
+    idbSet("docBak", { boards: state.boards, activeId: state.activeId }).catch(function(){});
     state.boards = row.payload.boards;
     state.activeId = row.payload.activeId || (state.boards[0] && state.boards[0].id);
     history.stack = []; history.index = -1;
@@ -6258,7 +6284,7 @@ function boot(){
         if(String(d.version) === APP_VERSION){ toast("已经是最新版本"); return; }
         toast("发现新版本，正在更新…");
         var u = location.pathname + "?v=" + Date.now();
-        setTimeout(function(){ location.replace(u); }, 800);
+        setTimeout(function(){ flushDoc(function(){ location.replace(u); }); }, 800);
       })
       .catch(function(){ toast("检查失败，检查一下网络再试"); })
       .then(function(){ checkBtn.disabled = false; checkBtn.textContent = old; });
@@ -6275,6 +6301,24 @@ function boot(){
     openPanel();
   });
   idbGet("doc").then(function(doc){
+    if(!doc || !doc.boards || !doc.boards.length){
+      try{
+        var ls = localStorage.getItem("pb-doc-ls");
+        if(ls){ var lsd = JSON.parse(ls); if(lsd && lsd.boards && lsd.boards.length) doc = lsd; }
+      }catch(err){}
+    }
+    if(!doc || !doc.boards || !doc.boards.length){
+      /* 最后一层兜底：上一份本地备份 */
+      idbGet("docBak").then(function(bak){
+        if(bak && bak.boards && bak.boards.length){
+          state.boards = bak.boards;
+          state.activeId = bak.activeId && bak.boards.some(function(b){ return b.id === bak.activeId; })
+            ? bak.activeId : bak.boards[0].id;
+          renderBoardList(); switchBoard(state.activeId); requestRender();
+          toast("已从本地备份恢复上一份内容");
+        }
+      }).catch(function(){});
+    }
     if(doc && doc.boards && doc.boards.length){
       state.boards = doc.boards;
       state.activeId = doc.activeId && doc.boards.some(function(b){ return b.id === doc.activeId; })
