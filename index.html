@@ -2574,6 +2574,10 @@ function drawCoverCrop(img, crop, x, y, w, h){
   var s0 = srcRect(img, crop);
   var ir = s0.w / s0.h, br = w / h;
   var sx, sy, sw, sh;
+  if(Math.abs(ir - br) < 0.012){   /* 比例已经对上了，就整块画满，不再二次裁切 */
+    ctx.drawImage(img, s0.x, s0.y, s0.w, s0.h, x, y, w, h);
+    return;
+  }
   if(ir > br){ sh = s0.h; sw = sh * br; sx = s0.x + (s0.w - sw) / 2; sy = s0.y; }
   else { sw = s0.w; sh = sw / br; sx = s0.x; sy = s0.y + (s0.h - sh) / 2; }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
@@ -2894,12 +2898,8 @@ function drawElement(el){
       imgCache.set(el.src, img);
     }
     if(img.complete && img.naturalWidth){
-      if(el.crop){
-        var sR = srcRect(img, el.crop);
-        ctx.drawImage(img, sR.x, sR.y, sR.w, sR.h, el.x, el.y, el.w, el.h);
-      } else {
-        ctx.drawImage(img, el.x, el.y, el.w, el.h);
-      }
+      /* 用 cover 方式画：框和图片比例不一致时按比例裁切，绝不再拉伸变形 */
+      drawCoverCrop(img, el.crop, el.x, el.y, el.w, el.h);
     } else {
       ctx.fillStyle = "#e9eceb";
       roundRect(ctx, el.x, el.y, el.w, el.h, 3);
@@ -4346,7 +4346,7 @@ function svgForBoard(b){
       var d = el.points.map(function(pt, idx){ return (idx ? "L" : "M") + pt.x + " " + pt.y; }).join(" ");
       parts.push('<path d="' + d + '" stroke="' + (el.stroke || "#1b2027") + '" stroke-width="' + (el.size || 2.4) + '" stroke-linecap="round" fill="none"/>');
     } else if(el.type === "image"){
-      parts.push('<image x="' + el.x + '" y="' + el.y + '" width="' + el.w + '" height="' + el.h + '" href="' + el.src + '"/>');
+      parts.push('<image x="' + el.x + '" y="' + el.y + '" width="' + el.w + '" height="' + el.h + '" preserveAspectRatio="xMidYMid slice" href="' + el.src + '"/>');
     }
   });
 
@@ -5208,9 +5208,29 @@ function cropRectFrac(){
   $("#cropReset").addEventListener("click", function(){ setCropRect(0, 0, 1, 1); });
   $("#cropApply").addEventListener("click", function(){
     if(!cropEl){ closeCrop(); return; }
+    var el0 = cropEl;
     var f = cropRectFrac();
-    if(f.w > 0.985 && f.h > 0.985 && f.x < 0.01 && f.y < 0.01){ delete cropEl.crop; }
-    else cropEl.crop = { x: f.x, y: f.y, w: Math.min(1 - f.x, f.w), h: Math.min(1 - f.y, f.h) };
+    if(f.w > 0.985 && f.h > 0.985 && f.x < 0.01 && f.y < 0.01){ delete el0.crop; }
+    else el0.crop = { x: f.x, y: f.y, w: Math.min(1 - f.x, f.w), h: Math.min(1 - f.y, f.h) };
+
+    /* 让元素外框跟着裁剪比例走：否则框比裁剪区更扁/更窄时，
+       绘制又会做一次 cover 裁切，看起来就像被拉伸变形 */
+    if(el0.type === "image" && el0.crop){
+      var img0 = imgFor(el0.src || el0.image);
+      var nw0 = img0 && img0.naturalWidth, nh0 = img0 && img0.naturalHeight;
+      if(nw0 && nh0){
+        var wantR = (el0.crop.w * nw0) / (el0.crop.h * nh0);   /* 裁剪区宽高比 */
+        var cy0 = el0.y + el0.h / 2;
+        var cx0 = el0.x + el0.w / 2;
+        var w1 = el0.w, h1 = el0.w / wantR;
+        if(h1 < 40 || h1 > 1600){        /* 极端比例时改以高度为准 */
+          h1 = el0.h; w1 = el0.h * wantR;
+        }
+        el0.w = Math.round(w1); el0.h = Math.round(h1);
+        el0.x = Math.round(cx0 - el0.w / 2);   /* 保持中心不动 */
+        el0.y = Math.round(cy0 - el0.h / 2);
+      }
+    }
     historyPush(); requestRender(); scheduleSave(); syncUI();
     closeCrop(); toast("已裁剪");
   });
@@ -5247,7 +5267,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-33";
+var APP_VERSION = "2026.11.08-34";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
