@@ -3352,6 +3352,10 @@ var editingId = null;
 
 var editorOpenedAt = 0;
 function openEditor(el){
+  clearTimeout(touchTimer);
+  touchOrigin = null;
+  touchRadialOpen = false;
+  if(radialOpen) closeRadial();
   editorOpenedAt = Date.now();
   editingId = el.id;
   state.editing = el.id;
@@ -3896,6 +3900,7 @@ cv.addEventListener("pointerdown", function(e){
     clearTimeout(touchTimer);
     touchTimer = setTimeout(function(){
       if(!touchOrigin) return;
+      if(state.editing || editingId || radialOpen) { touchOrigin = null; return; }
       var lx = touchOrigin.cx, ly = touchOrigin.cy;
       touchRadialOpen = true;
       openRadial({ x: lx, y: ly }, pointer({ clientX: lx, clientY: ly }));
@@ -4273,6 +4278,7 @@ function handleTouchDoubleTap(e){
   if(!hit){
     if(lastTap.blank && now - lastTap.blankAt < 360){
       lastTap = { id:null, at:0, blank:false, blankAt:0 };
+      if(radialOpen) closeRadial();
       var nb = mkWhiteNote(wp.x, wp.y);
       nb.fill = NOTE_COLORS[0];
       nb.w = 200; nb.h = 200; nb.bw = 200; nb.bh = 200;
@@ -4303,6 +4309,8 @@ function handleTouchDoubleTap(e){
 cv.addEventListener("pointerup", function(e){
   /* 先把这根手指从触摸表里摘掉，避免提前 return 留下“幽灵手指”让下一根单指误判成双指 */
   var wasPinch = pinch;
+  clearTimeout(touchTimer);
+  touchOrigin = null;
   if(e.pointerType === "touch"){
     delete touchPts[e.pointerId];
     if(Object.keys(touchPts).length < 2) pinch = null;
@@ -5399,10 +5407,10 @@ function boardOff(){
   return { x: r.left, y: r.top };
 }
 
-var HINT_IDLE_DESKTOP = "空格拖动画布　·　Ctrl 滚轮缩放　·　双击画面写字";
-var HINT_IDLE_TOUCH = "单指拖动画布　·　双指缩放　·　双击便签改字";
-var HINT_EMPTY_DESKTOP = "空白画板：按住右键在画布上转一圈松开 = 唤出命令圆环　·　双击空白处写字";
-var HINT_EMPTY_TOUCH = "空白画板：长按画布一下 = 唤出命令圆环　·　双击便签改字";
+var HINT_IDLE_DESKTOP = "双击空白 = 新建便签　·　空格拖动画布　·　Ctrl 滚轮缩放";
+var HINT_IDLE_TOUCH = "双击空白 = 新建便签　·　双击便签 = 改字　·　双指缩放";
+var HINT_EMPTY_DESKTOP = "空白画板：双击空白 = 新建便签　·　按住右键转一圈松开 = 命令圆环";
+var HINT_EMPTY_TOUCH = "空白画板：双击空白 = 新建便签　·　长按画布一下 = 命令圆环";
 /* 左下提示：跟着选中的元素换文案，并按端区分手势 */
 function updateHint(wp){
   var box = $("#hint");
@@ -6037,7 +6045,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-41";
+var APP_VERSION = "2026.11.08-42";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
