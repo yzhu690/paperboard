@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>纸面 · 无限画布白板</title>
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -1979,6 +1979,18 @@ var stage = $("#stage");
 var cv = $("#board");
 var ctx = cv.getContext("2d");
 var dpr = Math.max(1, window.devicePixelRatio || 1);
+function refreshDpr(){ var d = Math.max(1, window.devicePixelRatio || 1); if(d !== dpr){ dpr = d; requestRender(); } }
+/* 浏览器自带的缩放（双击放大 / 双指缩放页面）会让画布糊掉、浮层出画，这里直接拦掉 */
+document.addEventListener("gesturestart", function(e){ e.preventDefault(); }, { passive:false });
+["gesturechange","gestureend"].forEach(function(t){
+  document.addEventListener(t, function(e){ e.preventDefault(); }, { passive:false });
+});
+document.addEventListener("touchmove", function(e){
+  if(e.touches && e.touches.length > 1){ if(e.cancelable) e.preventDefault(); }
+}, { passive:false });
+document.addEventListener("dblclick", function(e){
+  if(e.target && e.target.closest && e.target.closest("#board, #stage")) { /* 画布内的双击由业务处理 */ }
+}, { passive:true });
 
 /* ============================================================
    1. 存储层（IndexedDB）
@@ -2481,6 +2493,7 @@ function requestRender(){
 
 function draw(){
   var v = viewSize();
+  refreshDpr();
   if(cv.width !== Math.floor(v.w * dpr) || cv.height !== Math.floor(v.h * dpr)){
     cv.width = Math.floor(v.w * dpr);
     cv.height = Math.floor(v.h * dpr);
@@ -4229,8 +4242,24 @@ function handleTouchDoubleTap(e){
   var sp = pointer(e);
   var wp = toWorld(sp.x, sp.y);
   var hit = hitTest(wp.x, wp.y);
-  if(!hit){ lastTap = { id:null, at:0 }; return false; }
   var now = Date.now();
+  if(!hit){
+    if(lastTap.blank && now - lastTap.blankAt < 360){
+      lastTap = { id:null, at:0, blank:false, blankAt:0 };
+      var nb = mkWhiteNote(wp.x, wp.y);
+      nb.fill = NOTE_COLORS[0];
+      nb.w = 200; nb.h = 200; nb.bw = 200; nb.bh = 200;
+      nb.x = wp.x - 100; nb.y = wp.y - 100;
+      addElement(nb, true);
+      state.selection = [nb.id];
+      syncUI();
+      openEditor(nb);
+      requestRender();
+      return true;
+    }
+    lastTap = { id:null, at:0, blank:true, blankAt:now };
+    return false;
+  }
   if(lastTap.id === hit.id && now - lastTap.at < 360){
     lastTap = { id:null, at:0 };
     clearTimeout(touchTimer);
@@ -4420,9 +4449,14 @@ cv.addEventListener("dblclick", function(e){
     syncUI();
     openEditor(hit);
   } else if(!hit){
-    var wn2 = mkWhiteNote(wp.x, wp.y);
-    addElement(wn2, true);
-    openEditor(wn2);
+    var nn2 = mkWhiteNote(wp.x, wp.y);
+    nn2.fill = NOTE_COLORS[0];
+    nn2.w = 200; nn2.h = 200; nn2.bw = 200; nn2.bh = 200;
+    nn2.x = wp.x - 100; nn2.y = wp.y - 100;
+    addElement(nn2, true);
+    state.selection = [nn2.id];
+    syncUI();
+    openEditor(nn2);
   }
 });
 
@@ -5283,12 +5317,21 @@ function nodeOpsEl(){
       e.preventDefault();
       var id = box.getAttribute("data-id");
       if(!id) return;
-      if(t.getAttribute("data-op") === "child") mindChild(id);
+      var op = t.getAttribute("data-op");
+      if(op === "child") mindChild(id);
+      else if(op === "dup") duplicateWithLinks([id], 24, 24);
       else mindSibling(id);
       requestRender(); scheduleSave();
     });
   }
   if(TOUCH_UI){
+    if(!box.querySelector('button[data-op="dup"]')){
+      var db = document.createElement("button");
+      db.type = "button";
+      db.setAttribute("data-op", "dup");
+      db.innerHTML = '<i><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#151a21" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="3.5" width="11" height="11" rx="2"></rect><rect x="9.5" y="9.5" width="11" height="11" rx="2"></rect></svg></i>复制';
+      box.appendChild(db);
+    }
     var spans = box.querySelectorAll("button span");
     for(var si = 0; si < spans.length; si++) spans[si].style.display = "none";
     box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "44px"; b3.style.fontSize = "14px"; b3.style.padding = "0 17px 0 11px"; });
@@ -5506,6 +5549,22 @@ function syncConnPanel(conns){
     b.classList.toggle("is-on", b.getAttribute("data-dash") === d);
   });
 }
+
+/* 保险：body 上残留 is-focus 但实际不在聚焦时，把浮层放回来 */
+function healUiState(){
+  if(state.focus) return;
+  if(document.body.classList.contains("is-focus")) document.body.classList.remove("is-focus");
+  var wb = $("#walkBar");
+  if(wb && wb.classList.contains("on") && !state.focus) wb.classList.remove("on");
+  var ft = $("#focusTag");
+  if(ft && ft.classList.contains("on") && !state.focus) ft.classList.remove("on");
+}
+window.addEventListener("resize", function(){ healUiState(); syncZoom(); updateHint(); });
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", function(){ refreshDpr(); healUiState(); syncZoom(); requestRender(); });
+}
+window.addEventListener("orientationchange", function(){ setTimeout(function(){ healUiState(); syncZoom(); updateHint(); requestRender(); }, 220); });
+document.addEventListener("visibilitychange", function(){ if(!document.hidden){ healUiState(); syncZoom(); updateHint(); updateNodeOps(); requestRender(); } });
 
 function syncZoom(){
   $("#zoomVal").textContent = Math.round(cam.zoom * 100) + "%";
@@ -5951,7 +6010,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-39";
+var APP_VERSION = "2026.11.08-40";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
