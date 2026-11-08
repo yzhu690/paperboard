@@ -4517,7 +4517,7 @@ $("#eyeBtn").addEventListener("click", function(){
 });
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-18";
+var APP_VERSION = "2026.11.08-18b";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -5079,6 +5079,21 @@ var LANG = (function(){
   try{ return localStorage.getItem("pb-lang") || "zh"; }catch(e){ return "zh"; }
 })();
 var I18N_EN = {
+  "未配置": "Not configured",
+  "已配置 · 未登录云端": "Configured · not signed in",
+  "已连接 ": "Connected ",
+  "未登录": "Not signed in",
+  "尚未选择": "Not chosen",
+  "使用说明": "How to use",
+  "登录云端账号（推荐）": "Sign in to cloud (recommended)",
+  "检查更新": "Check for updates",
+  "音效已开启": "Sound on",
+  "音效已关闭": "Sound off",
+  "已经是最新版本": "Already up to date",
+  "正在检查…": "Checking…",
+  "发现新版本，正在更新…": "New version found, updating…",
+  "暂时拿不到版本信息，检查一下网络": "Cannot reach the version file — check your connection",
+  "检查失败，检查一下网络再试": "Check failed — try again",
   "纸 面": "Paperboard",
   "起点": "Start",
   "终点": "End",
@@ -5567,9 +5582,9 @@ async function cloudAdopt(manual){
 }
 
 function cloudStatusText(){
-  if(!cloudReady()) return "未配置";
-  if(!CLOUD.session) return "已配置 · 未登录云端";
-  return "已连接 " + (CLOUD.session.email || "");
+  if(!cloudReady()) return tr("未配置");
+  if(!CLOUD.session) return tr("已配置 · 未登录云端");
+  return tr("已连接 ") + (CLOUD.session.email || "");
 }
 
 function cloudPaint(msg){
