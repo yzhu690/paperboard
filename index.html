@@ -5331,12 +5331,19 @@ function boardOff(){
 
 var HINT_IDLE_DESKTOP = "空格拖动画布　·　Ctrl 滚轮缩放　·　双击画面写字";
 var HINT_IDLE_TOUCH = "单指拖动画布　·　双指缩放　·　双击便签改字";
+var HINT_EMPTY_DESKTOP = "空白画板：按住右键在画布上转一圈松开 = 唤出命令圆环　·　双击空白处写字";
+var HINT_EMPTY_TOUCH = "空白画板：长按画布一下 = 唤出命令圆环　·　双击便签改字";
 /* 左下提示：跟着选中的元素换文案，并按端区分手势 */
 function updateHint(wp){
   var box = $("#hint");
   if(!box) return;
   if(wp){
     box.textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　" + (TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP);
+    return;
+  }
+  var b = board();
+  if(b && !b.elements.length){
+    box.textContent = TOUCH_UI ? HINT_EMPTY_TOUCH : HINT_EMPTY_DESKTOP;
     return;
   }
   var one = state.selection.length === 1 ? elById(state.selection[0]) : null;
@@ -5944,7 +5951,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-38";
+var APP_VERSION = "2026.11.08-39";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
