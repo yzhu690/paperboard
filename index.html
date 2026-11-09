@@ -63,6 +63,8 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
 #drawer{
   width:252px;
   flex:0 0 252px;
+  transition:width .2s cubic-bezier(.4,0,.2,1), flex-basis .2s cubic-bezier(.4,0,.2,1), border-right-color .2s;
+  overflow:hidden;
   background:#ffffff;
   color:#3b4249;
   display:flex;
@@ -1304,6 +1306,36 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 #focusTag #focusBoard{color:#151a21;font-weight:600;font-size:13px}
 #focusTag .ft-sep{color:#c9cfd5}
 
+#drawerFoldBtn{
+  margin-left:auto; width:22px; height:22px; border-radius:7px;
+  border:1px solid transparent; background:transparent; color:#9aa3aa; display:flex; align-items:center;
+  justify-content:center; cursor:pointer; opacity:.75; transition:opacity .16s, background .16s, border-color .16s;
+}
+#drawer:hover #drawerFoldBtn, #drawerFoldBtn:focus-visible{ opacity:1; }
+#drawerFoldBtn:hover{ background:#f4f6f5; border-color:#e7eaec; color:#151a21; }
+#drawerFoldBtn:hover{ background:#f4f6f5; color:#151a21; }
+#drawerFoldBtn svg{ width:14px; height:14px; }
+#unfoldBar{
+  position:fixed; left:14px; top:14px; z-index:12; display:none; align-items:center; gap:8px;
+}
+#unfoldBtn{
+  width:30px; height:30px; border-radius:9px; border:1px solid #e3e7e9; background:rgba(255,255,255,.94);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:#4a5359;
+  box-shadow:0 1px 4px rgba(21,26,33,.08);
+}
+#unfoldBtn:hover{ color:#151a21; background:#fff; }
+#unfoldBtn svg{ width:15px; height:15px; }
+#foldBoardName{
+  font-size:12px; color:#6b747c; background:rgba(255,255,255,.94); border:1px solid #e3e7e9;
+  border-radius:999px; padding:6px 11px; max-width:320px; overflow:hidden; white-space:nowrap;
+  text-overflow:ellipsis; box-shadow:0 1px 4px rgba(21,26,33,.06);
+}
+#app.drawer-fold #drawer{ width:0; flex-basis:0; border-right-color:transparent; }
+#app.drawer-fold #unfoldBar{ display:flex; }
+@media (max-width:820px){
+  #drawerFoldBtn{ display:none; }
+  #app.drawer-fold #unfoldBar{ display:none; }
+}
 body.is-focus #drawer{display:none}
 body.is-focus #zoomBar,
 body.is-focus #backupChip,
@@ -1423,6 +1455,13 @@ details.man-adv .inner{padding:0 12px 12px}
 <audio id="sfx" src="https://aka.doubaocdn.com/s/LxNl8tHhEc" preload="auto" playsinline></audio>
 <div id="app">
 
+  <div id="unfoldBar">
+    <button id="unfoldBtn" type="button" aria-label="展开侧栏" title="展开侧栏">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+    </button>
+    <span id="foldBoardName">画板</span>
+  </div>
+
   <!-- ========== 左侧便签抽屉 ========== -->
   <aside id="drawer">
     <div class="brand">
@@ -1438,6 +1477,9 @@ details.man-adv .inner{padding:0 12px 12px}
     <div class="drawer-label">
       <span id="drawerLabelText">画板</span>
       <span id="boardCount">0</span>
+      <button id="drawerFoldBtn" type="button" aria-label="收起侧栏" title="收起侧栏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+      </button>
     </div>
     <div id="boardList"></div>
 
@@ -2033,6 +2075,16 @@ function idbGet(key){
     });
   });
 }
+function idbDelete(key){
+  return openDB().then(function(db){
+    return new Promise(function(res, rej){
+      var tx = db.transaction("kv","readwrite");
+      tx.objectStore("kv").delete(key);
+      tx.oncomplete = function(){ res(true); };
+      tx.onerror = function(){ rej(tx.error); };
+    });
+  });
+}
 function idbSet(key, val){
   return openDB().then(function(db){
     return new Promise(function(res, rej){
@@ -2381,12 +2433,15 @@ function viewSize(){ return { w: stage.clientWidth, h: stage.clientHeight }; }
 function toWorld(sx, sy){ return { x: sx / cam.zoom + cam.x, y: sy / cam.zoom + cam.y }; }
 function toScreen(wx, wy){ return { x: (wx - cam.x) * cam.zoom, y: (wy - cam.y) * cam.zoom }; }
 
-function zoomAt(sx, sy, factor){
+function zoomTo(sx, sy, want){
   var before = toWorld(sx, sy);
-  cam.zoom = clamp(cam.zoom * factor, 0.08, 5);
+  cam.zoom = clamp(want, 0.08, 5);
   cam.x = before.x - sx / cam.zoom;
   cam.y = before.y - sy / cam.zoom;
   syncZoom(); requestRender();
+}
+function zoomAt(sx, sy, factor){
+  zoomTo(sx, sy, cam.zoom * factor);
 }
 
 function fitToContent(){
@@ -2633,6 +2688,31 @@ function wrapLines(c, text, maxW){
   for(var p = 0; p < paras.length; p++){
     var line = "";
     var src = paras[p];
+    var hasSpace = /\s/.test(src);
+    if(hasSpace){
+      /* 含空格（英文等）：按单词断行，避免把单词拆成两半 */
+      var words = src.split(" ");
+      var cur = "";
+      for(var w = 0; w < words.length; w++){
+        var tryW = cur ? (cur + " " + words[w]) : words[w];
+        if(c.measureText(tryW).width > maxW && cur){
+          out.push(cur); cur = words[w];
+        } else {
+          cur = tryW;
+        }
+        /* 单个词就超宽时才硬拆 */
+        if(cur && c.measureText(cur).width > maxW){
+          var piece = "";
+          for(var k = 0; k < cur.length; k++){
+            if(c.measureText(piece + cur[k]).width > maxW && piece){ out.push(piece); piece = cur[k]; }
+            else piece += cur[k];
+          }
+          cur = piece;
+        }
+      }
+      if(cur) out.push(cur);
+      continue;
+    }
     for(var i = 0; i < src.length; i++){
       var ch = src[i];
       var test = line + ch;
@@ -2668,7 +2748,7 @@ function autoFitCard(el){
   var guard = 0;
   while(size > 8 && guard < 400){
     measureCtx.font = "400 " + size + "px 'Noto Sans SC','PingFang SC',sans-serif";
-    var lines = wrapLines(measureCtx, el.text || "", maxW);
+    var lines = wrapLines(measureCtx, elText(el), maxW);
     var need = lines.length * size * 1.4;
     if(need <= maxH) break;
     size -= 0.5;
@@ -2685,7 +2765,7 @@ function drawTextBlock(c, el, box){
     c.fillStyle = el.color || "#1b2027";
     c.textBaseline = "middle";
     c.textAlign = "center";
-    c.fillText(el.text || "", box.x + box.w / 2, box.y + box.h / 2);
+    c.fillText(elText(el), box.x + box.w / 2, box.y + box.h / 2);
     c.textAlign = "left";
     c.textBaseline = "top";
     return;
@@ -2694,7 +2774,7 @@ function drawTextBlock(c, el, box){
   c.fillStyle = el.color || "#1b2027";
   c.textBaseline = "top";
   var pad = el.type === "note" ? 16 : 2;
-  var lines = wrapLines(c, el.text || "", Math.max(10, box.w - pad * 2));
+  var lines = wrapLines(c, elText(el), Math.max(10, box.w - pad * 2));
   var lh = fs * 1.4;
   var startY = box.y + pad;
   if(el.type === "note"){
@@ -2789,7 +2869,7 @@ function drawConnector(conn){
   ctx.stroke();
   drawTip(g.p1.x, g.p1.y, Math.atan2(g.p1.y - g.c.y, g.p1.x - g.c.x), st.start, st);
   drawTip(g.p2.x, g.p2.y, Math.atan2(g.p2.y - g.c.y, g.p2.x - g.c.x), st.end, st);
-  if(conn.label){
+  if(elLabel(conn)){
     drawConnLabel(g, conn);
   }
   ctx.restore();
@@ -2835,7 +2915,7 @@ function drawMidLabel(mid, label, fs, color){
   ctx.restore();
 }
 function drawConnLabel(g, conn){
-  drawMidLabel(g.mid, conn.label, connLabelFontSize(conn), connLabelColor(conn));
+  drawMidLabel(g.mid, elLabel(conn), connLabelFontSize(conn), connLabelColor(conn));
 }
 
 /* ---- 卡片绘制 ---- */
@@ -2885,15 +2965,15 @@ function shadowFor(baseAlpha, baseBlur, baseOff){
   var z = cam.zoom;
   var f = Math.min(1, Math.max(0.32, z));
   return {
-    color: "rgba(21,26,33," + (baseAlpha * (0.4 + 0.6 * f)).toFixed(3) + ")",
-    blur: baseBlur * (0.45 + 0.55 * f) / z,
-    off: baseOff * (0.5 + 0.5 * f) / z
+    color: "rgba(21,26,33," + (baseAlpha * (0.26 + 0.74 * f)).toFixed(3) + ")",
+    blur: baseBlur * (0.34 + 0.66 * f),
+    off: baseOff * (0.4 + 0.6 * f)
   };
 }
 
 function drawCard(el){
   var r = 3;
-  var sh = shadowFor(0.14, 11, 3);
+  var sh = shadowFor(0.105, 9, 2.5);
   ctx.save();
   ctx.shadowColor = sh.color;
   ctx.shadowBlur = sh.blur;
@@ -3039,36 +3119,51 @@ function welcomeTourCamera(){
 }
 function welcomeTourElements(){
   var wf = { id:uid(), type:"frame", x:-640, y:-350, w:560, h:430,
-             name:"成品区 · 一个容器装一件事" };
+             name:"成品区 · 一个容器装一件事",
+             nameEn:"Finished · one container, one idea" };
   var A = { id:uid(), type:"note", x:-610, y:-292, w:188, h:112, fill:"#ffe9a8", fontSize:13.5,
-            text:"右键或长按，\n唤出圆环命令" };
+            text:"右键或长按，\n唤出圆环命令",
+            textEn:"Right-click or long-press\nto open the wheel" };
   var B = { id:uid(), type:"note", x:-392, y:-292, w:188, h:112, fill:"#cfe0f5", fontSize:13.5,
-            text:"选「下一级」，\n新便签自己长出来" };
+            text:"选「下一级」，\n新便签自己长出来",
+            textEn:"Tap “Child” — the new\nnote grows by itself" };
   var C = { id:uid(), type:"note", x:-392, y:-150, w:188, h:112, fill:"#cfe8dc", fontSize:13.5,
-            text:"两根便签之间\n拉一根箭头" };
+            text:"两根便签之间\n拉一根箭头",
+            textEn:"Drag an arrow\nbetween two notes" };
   var conn1 = { id:uid(), type:"connector", from:A.id, to:B.id, bend:0 };
-  var conn2 = { id:uid(), type:"connector", from:B.id, to:C.id, bend:0, label:"写一句说明", labelColor:"red" };
+  var conn2 = { id:uid(), type:"connector", from:B.id, to:C.id, bend:0, label:"写一句说明",
+                labelEn:"a caption", labelColor:"red" };
   var star = { id:uid(), type:"text", x:-196, y:-300, w:62, h:62, fontSize:38,
                color:"#151a21", text:"✨", emoji:true, align:"center" };
 
   var card = { id:uid(), type:"note", x:-56, y:-402, w:650, h:534, fill:"#ffffff", fontSize:14, text:"" };
   var title = { id:uid(), type:"text", x:-20, y:-386, w:600, h:44, fontSize:21, color:"#151a21",
-                text:"7 步做完左边这张图" };
+                text:"7 步做完左边这张图",
+                textEn:"Build the picture on the left in 7 steps" };
   var steps = [
-    "① 右键（手机上长按 350ms）→ 命令圆环弹出来",
-    "② 圆环内圈挑一个容器（3:4 / 16:9），先定「装什么」",
-    "③ 圆环外圈点「便签」，在容器里落第一张",
-    "④ 选中便签 → 浮标「下一级」，子便签自带连线长出来",
-    "⑤ 拖「箭头」连两个元素；选中能改粗细 / 实虚 / 颜色",
-    "⑥ 双击箭头写一句说明（字号已调小，可切黑或红）",
-    "⑦ 圆环「表情」放个 ✨ 当标记，要紧的事一眼看到",
-    "⑧ 点「眼睛」→ 容器逐页演示；点「导出」→ PNG / SVG / 文本"
-  ].map(function(t, i){
+    ["① 右键（手机上长按 350ms）→ 命令圆环弹出来",
+     "① Right-click (long-press 350ms on a phone) → the command wheel opens"],
+    ["② 圆环内圈挑一个容器（3:4 / 16:9），先定「装什么」",
+     "② Pick a container in the inner ring (3:4 / 16:9) — decide what it holds"],
+    ["③ 圆环外圈点「便签」，在容器里落第一张",
+     "③ Tap “Note” on the outer ring; drop the first note inside"],
+    ["④ 选中便签 → 浮标「下一级」，子便签自带连线长出来",
+     "④ Select a note → tap “Child”; the child and its link appear"],
+    ["⑤ 拖「箭头」连两个元素；选中能改粗细 / 实虚 / 颜色",
+     "⑤ Drag “Arrow” between two elements; then set weight / dash / colour"],
+    ["⑥ 双击箭头写一句说明（字号已调小，可切黑或红）",
+     "⑥ Double-click the arrow to write a caption (smaller now, black or red)"],
+    ["⑦ 圆环「表情」放个 ✨ 当标记，要紧的事一眼看到",
+     "⑦ “Emoji” adds a ✨ as a marker — the key thing is visible at a glance"],
+    ["⑧ 点「眼睛」→ 容器逐页演示；点「导出」→ PNG / SVG / 文本",
+     "⑧ “Eye” walks through the container page by page; “Export” gives PNG / SVG / text"]
+  ].map(function(pair, i){
     return { id:uid(), type:"text", x:-20, y:-322 + i * 44, w:600, h:36,
-             fontSize:14.5, color:"#3f4750", text:t };
+             fontSize:14.5, color:"#3f4750", text:pair[0], textEn:pair[1] };
   });
   var foot = { id:uid(), type:"text", x:-20, y:44, w:600, h:64, fontSize:13.5, color:"#7a838b",
-               text:"左边是成品，右边是照着做一遍的步骤。做完这一张，整个白板就会用了。" };
+               text:"左边是成品，右边是照着做一遍的步骤。做完这一张，整个白板就会用了。",
+               textEn:"Left is the finished picture; right is how to make it once. Do this board and you can use the whole canvas." };
   return [wf, A, B, C, conn1, conn2, star, card, title].concat(steps, [foot]);
 }
 
@@ -3110,7 +3205,7 @@ function framesAt(wx, wy){
 
 function drawFrame(el){
   var k = 1 / cam.zoom;
-  var shF = shadowFor(0.10, 16, 5);
+  var shF = shadowFor(0.072, 12, 4);
   ctx.save();
   ctx.shadowColor = shF.color;
   ctx.shadowBlur = shF.blur;
@@ -3131,7 +3226,7 @@ function drawFrame(el){
   ctx.fillStyle = "#8a929a";
   ctx.font = "500 " + (11 * k) + "px 'JetBrains Mono',monospace";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText((el.ratio ? el.ratio + "   " : "") + (el.name || "容器"), el.x + 1, el.y - 7 * k);
+  ctx.fillText((el.ratio ? el.ratio + "   " : "") + elName(el), el.x + 1, el.y - 7 * k);
 
   /* 顺序编号 */
   if(el.seq){
@@ -3204,9 +3299,9 @@ function drawElement(el){
     ctx.setLineDash([]);
     drawTip(ee.a.x, ee.a.y, Math.atan2(ee.a.y - ee.b.y, ee.a.x - ee.b.x), stL.start, stL);
     drawTip(ee.b.x, ee.b.y, Math.atan2(ee.b.y - ee.a.y, ee.b.x - ee.a.x), stL.end, stL);
-    if(el.label){
+    if(elLabel(el)){
       var midA = { x:(ee.a.x + ee.b.x) / 2, y:(ee.a.y + ee.b.y) / 2 };
-      drawMidLabel(midA, el.label, connLabelFontSize(el), connLabelColor(el));
+      drawMidLabel(midA, elLabel(el), connLabelFontSize(el), connLabelColor(el));
     }
     ctx.setLineDash([]);
     return;
@@ -3472,7 +3567,8 @@ function openEditor(el){
   editor.style.resize = "none";
   editor.style.overflow = "hidden";
   editor.style.background = isCard ? ((el.link || el.image) ? "#ffffff" : (el.fill || "#ffe9a8")) : "#f7f8f6";
-  editor.value = el.text || "";
+  editor.value = elText(el);
+  editor.__langEn = (LANG === "en" && typeof el.textEn === "string");
   editor.focus();
   [120, 300, 520, 800].forEach(function(ms){ setTimeout(keepEditingVisible, ms); });
   editor.setSelectionRange(editor.value.length, editor.value.length);
@@ -3518,7 +3614,7 @@ function closeEditor(commit){
   if(!editingId) return;
   var el = board().elements.filter(function(e){ return e.id === editingId; })[0];
   if(commit && el){
-    el.text = editor.value;
+    if(editor.__langEn) el.textEn = editor.value; else el.text = editor.value;
     autoFitCard(el);
     if(!el.text.trim() && el.type === "text"){
       board().elements = board().elements.filter(function(e){ return e.id !== el.id; });
@@ -4094,13 +4190,8 @@ cv.addEventListener("pointerdown", function(e){
         if(dups.length){
           state.selection = dups.map(function(c){ return c.id; });
           var snapD = {};
+          /* dups 里已经包含容器的全部子元素副本，直接整体拖动即可 */
           dups.forEach(function(c){ snapD[c.id] = clone(c); });
-          /* 容器内部元素也一起带走 */
-          dups.forEach(function(c){
-            if(c.type === "frame"){
-              frameChildren(c).forEach(function(ch){ if(!snapD[ch.id]) snapD[ch.id] = clone(ch); });
-            }
-          });
           drag = { mode:"move", start:wp, snap:snapD, duplicated:true };
           requestRender(); syncUI();
           toast("拖出了一份副本");
@@ -4199,7 +4290,8 @@ cv.addEventListener("pointermove", function(e){
       var pm2 = { x: (pa2.x + pb2.x) / 2, y: (pa2.y + pb2.y) / 2 };
       var pl2 = pointer({ clientX: pm2.x, clientY: pm2.y });
       touchGestureAt = Date.now();
-      cam.zoom = clamp(pinch.z0 * (pd / pinch.d0), 0.08, 5);
+      var rawZ = pinch.z0 * (pd / pinch.d0);
+      cam.zoom = clamp(clamp(rawZ, pinch.z0 / 1.3, pinch.z0 * 1.3), 0.08, 5);
       cam.x = pinch.w0.x - pl2.x / cam.zoom;
       cam.y = pinch.w0.y - pl2.y / cam.zoom;
       syncZoom(); requestRender();
@@ -4621,7 +4713,14 @@ cv.addEventListener("wheel", function(e){
   e.preventDefault();
   var sp = pointer(e);
   if(e.ctrlKey || e.metaKey){
-    zoomAt(sp.x, sp.y, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    var now = Date.now();
+    if(!wheelZoom.base || now - wheelZoom.at > 600){
+      wheelZoom.base = cam.zoom;
+    }
+    wheelZoom.at = now;
+    var want = clamp(cam.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12),
+                     wheelZoom.base / 1.3, wheelZoom.base * 1.3);
+    zoomTo(sp.x, sp.y, want);
   } else {
     if(e.shiftKey){
       cam.x += e.deltaY / cam.zoom;
@@ -4800,12 +4899,13 @@ function duplicateWithLinks(ids, dx, dy){
   /* 原元素之间的连线：两端都是复制体，就整条复制一份 */
   board().elements.forEach(function(el){
     if(el.type !== "connector") return;
-    if(ids.indexOf(el.from) < 0 && ids.indexOf(el.to) < 0) return;
+    /* 两端都在副本里（例如容器连同内部元素一起复制）时才整条复制 */
+    if(!map[el.from] || !map[el.to]) return;
     var c = clone(el);
     c.id = uid();
     c.x = (c.x || 0) + dx; c.y = (c.y || 0) + dy;
-    if(map[el.from]) c.from = map[el.from];
-    if(map[el.to]) c.to = map[el.to];
+    c.from = map[el.from];
+    c.to = map[el.to];
     copies.push(c);
   });
   /* 容器：已有序号的，副本接在最大序号之后 */
@@ -5070,7 +5170,7 @@ function svgForBoard(b){
   b.elements.forEach(function(el){
     if(el.type !== "frame") return;
     parts.push(rectS(el.x, el.y, el.w, el.h, 3, "#ffffff", "rgba(21,26,33,.2)", 1));
-    parts.push('<text x="' + (el.x + 6) + '" y="' + (el.y - 10) + '" font-family="Noto Sans SC,sans-serif" font-size="12" fill="#5a6363">' + esc(el.name || "容器") + '</text>');
+    parts.push('<text x="' + (el.x + 6) + '" y="' + (el.y - 10) + '" font-family="Noto Sans SC,sans-serif" font-size="12" fill="#5a6363">' + esc(elName(el)) + '</text>');
   });
 
   b.elements.forEach(function(el){
@@ -5079,7 +5179,7 @@ function svgForBoard(b){
       if(el.image){
         var th = Math.min(el.w * 0.72, el.h - 34);
         parts.push('<image x="' + el.x + '" y="' + el.y + '" width="' + el.w + '" height="' + th + '" preserveAspectRatio="xMidYMid slice" href="' + el.image + '"/>');
-        if(el.text) parts.push(svgText(el.text, el.x + 12, el.y + th + 6, el.fontSize || 14, el.w - 24, "#1b2027"));
+        parts.push(svgText(elText(el), el.x + 12, el.y + th + 6, el.fontSize || 14, el.w - 24, "#1b2027"));
       } else if(el.link){
         var lk = el.link;
         var th2 = Math.min(el.w * 0.5, el.h * 0.46);
@@ -5087,23 +5187,23 @@ function svgForBoard(b){
         var body = (lk.title || lk.url || "") + "  " + (lk.site || "");
         parts.push(svgText(body, el.x + 12, el.y + (lk.image ? th2 + 10 : 12), 14, el.w - 24, "#1b2027"));
       } else {
-        parts.push(svgText(el.text, el.x + 16, el.y + 12, el.fontSize || 17, el.w - 32, "#1b2027"));
+        parts.push(svgText(elText(el), el.x + 16, el.y + 12, el.fontSize || 17, el.w - 32, "#1b2027"));
       }
     } else if(el.type === "boardref"){
       parts.push(rectS(el.x, el.y, el.w, el.h, 3, "#ffffff", "#151a21", 1.4));
       parts.push(svgText("画板引用：" + (el.title || ""), el.x + 12, el.y + 12, 13, el.w - 24, "#1b2027"));
     } else if(el.type === "text"){
-      parts.push(svgText(el.text, el.x + 2, el.y + 2, el.fontSize || 22, el.w - 4, el.color || "#1b2027"));
+      parts.push(svgText(elText(el), el.x + 2, el.y + 2, el.fontSize || 22, el.w - 4, el.color || "#1b2027"));
     } else if(el.type === "rect"){
       parts.push(rectS(el.x, el.y, el.w, el.h, 3, el.fill === "transparent" ? "none" : el.fill, el.stroke || "#1b2027", el.strokeWidth || 1.6));
-      if(el.text) parts.push(svgText(el.text, el.x + 12, el.y + 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
+      parts.push(svgText(elText(el), el.x + 12, el.y + 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
     } else if(el.type === "ellipse"){
       parts.push('<ellipse cx="' + (el.x + el.w / 2) + '" cy="' + (el.y + el.h / 2) + '" rx="' + Math.abs(el.w / 2) + '" ry="' + Math.abs(el.h / 2) + '" fill="' + (el.fill === "transparent" ? "none" : el.fill) + '" stroke="' + (el.stroke || "#1b2027") + '" stroke-width="' + (el.strokeWidth || 1.6) + '"/>');
-      if(el.text) parts.push(svgText(el.text, el.x + el.w / 2 - 20, el.y + el.h / 2 - 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
+      parts.push(svgText(elText(el), el.x + el.w / 2 - 20, el.y + el.h / 2 - 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
     } else if(el.type === "diamond"){
       var dcx = el.x + el.w / 2, dcy = el.y + el.h / 2;
       parts.push('<polygon points="' + dcx + ',' + el.y + ' ' + (el.x + el.w) + ',' + dcy + ' ' + dcx + ',' + (el.y + el.h) + ' ' + el.x + ',' + dcy + '" fill="' + (el.fill === "transparent" ? "none" : el.fill) + '" stroke="' + (el.stroke || "#1b2027") + '" stroke-width="' + (el.strokeWidth || 1.6) + '"/>');
-      if(el.text) parts.push(svgText(el.text, el.x + el.w / 2 - 20, el.y + el.h / 2 - 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
+      parts.push(svgText(elText(el), el.x + el.w / 2 - 20, el.y + el.h / 2 - 12, el.fontSize || 15, el.w - 24, el.color || "#1b2027"));
     } else if(el.type === "line" || el.type === "arrow"){
       parts.push('<line x1="' + el.x1 + '" y1="' + el.y1 + '" x2="' + el.x2 + '" y2="' + el.y2 + '" stroke="' + (el.stroke || "#1b2027") + '" stroke-width="' + (el.strokeWidth || 1.8) + '"/>');
     } else if(el.type === "freedraw"){
@@ -5133,7 +5233,7 @@ function svgForBoard(b){
     parts.push(tip(g.p1.x, g.p1.y, Math.atan2(g.p1.y - g.c.y, g.p1.x - g.c.x), st.start));
     parts.push(tip(g.p2.x, g.p2.y, Math.atan2(g.p2.y - g.c.y, g.p2.x - g.c.x), st.end));
     if(el.label){
-      parts.push('<text x="' + g.mid.x + '" y="' + (g.mid.y) + '" text-anchor="middle" dominant-baseline="middle" font-family="Noto Sans SC,sans-serif" font-size="' + connLabelFontSize(el) + '" font-weight="500" fill="' + connLabelColor(el) + '" stroke="#ffffff" stroke-width="2" paint-order="stroke">' + esc0(el.label) + '</text>');
+      parts.push('<text x="' + g.mid.x + '" y="' + (g.mid.y) + '" text-anchor="middle" dominant-baseline="middle" font-family="Noto Sans SC,sans-serif" font-size="' + connLabelFontSize(el) + '" font-weight="500" fill="' + connLabelColor(el) + '" stroke="#ffffff" stroke-width="2" paint-order="stroke">' + esc0(elLabel(el)) + '</text>');
     }
   });
 
@@ -5156,7 +5256,7 @@ function boardText(b){
   var out = ["# " + (b.name || "画板"), ""];
   var frames = b.elements.filter(function(e){ return e.type === "frame"; });
   frames.forEach(function(f){
-    out.push("## " + (f.seq ? "第 " + f.seq + " 页 · " : "") + (f.name || "容器"));
+    out.push("## " + (f.seq ? (LANG === "en" ? "Page " : "第 ") + f.seq + (LANG === "en" ? " · " : " 页 · ") : "") + elName(f));
     frameChildrenIn(b, f).forEach(function(k){
       var line = k.text || (k.link && (k.link.title || k.link.url)) || "";
       if(line) out.push("- " + String(line).replace(/\n/g, " "));
@@ -5199,9 +5299,9 @@ function exportSVGLegacy(){
     var el = b.elements[i];
     if(el.type === "note"){
       parts.push('<rect x="' + el.x + '" y="' + el.y + '" width="' + el.w + '" height="' + el.h + '" rx="2" fill="' + (el.fill || "#ffe9a8") + '" stroke="rgba(21,26,33,.08)"/>');
-      parts.push(svgText(el.text, el.x + 16, el.y + 16, el.fontSize || 17, el.w - 32, "#1b2027"));
+      parts.push(svgText(elText(el), el.x + 16, el.y + 16, el.fontSize || 17, el.w - 32, "#1b2027"));
     } else if(el.type === "text"){
-      parts.push(svgText(el.text, el.x + 2, el.y + 2, el.fontSize || 22, el.w - 4, el.color || "#1b2027"));
+      parts.push(svgText(elText(el), el.x + 2, el.y + 2, el.fontSize || 22, el.w - 4, el.color || "#1b2027"));
     } else if(el.type === "rect"){
       parts.push('<rect x="' + el.x + '" y="' + el.y + '" width="' + el.w + '" height="' + el.h + '" rx="3" fill="' + (el.fill === "transparent" ? "none" : el.fill) + '" stroke="' + (el.stroke || "#1b2027") + '" stroke-width="' + (el.strokeWidth || 1.6) + '"/>');
     } else if(el.type === "ellipse"){
@@ -5576,30 +5676,55 @@ var HINT_IDLE_TOUCH = "双击空白 = 新建便签　·　双击便签 = 改字�
 var HINT_EMPTY_DESKTOP = "空白画板：双击空白 = 新建便签　·　按住右键转一圈松开 = 命令圆环";
 var HINT_EMPTY_TOUCH = "空白画板：双击空白 = 新建便签　·　长按画布一下 = 命令圆环";
 /* 左下提示：跟着选中的元素换文案，并按端区分手势 */
+function hintIdle(){
+  if(LANG === "en") return TOUCH_UI
+    ? "Double-tap blank = new note　·　double-tap note = edit　·　pinch to zoom"
+    : "Double-click blank = new note　·　Space drags canvas　·　Ctrl + wheel zooms";
+  return TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP;
+}
+function hintEmpty(){
+  if(LANG === "en") return TOUCH_UI
+    ? "Empty board: double-tap blank = new note　·　long-press canvas = command wheel"
+    : "Empty board: double-click blank = new note　·　hold right button & flick = command wheel";
+  return TOUCH_UI ? HINT_EMPTY_TOUCH : HINT_EMPTY_DESKTOP;
+}
 function updateHint(wp){
   var box = $("#hint");
   if(!box) return;
   if(wp){
-    box.textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　" + (TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP);
+    box.textContent = "x " + Math.round(wp.x) + "　y " + Math.round(wp.y) + "　·　" + hintIdle();
     return;
   }
   var b = board();
   if(b && !b.elements.length){
-    box.textContent = TOUCH_UI ? HINT_EMPTY_TOUCH : HINT_EMPTY_DESKTOP;
+    box.textContent = hintEmpty();
     return;
   }
   var one = state.selection.length === 1 ? elById(state.selection[0]) : null;
   if(one && (one.type === "note" || one.type === "card" || one.type === "text")){
     var lvl = mindLevelOf(one.id);
-    var base = TOUCH_UI
-      ? "已选中：点「+ 下一级」往下长一层，点「箭头」拉去连线"
-      : "已选中：Tab 新增下一级　·　Enter 新增同级　·　双击改字";
-    if(TOUCH_UI && lvl >= 2) base = "已选中：点「+ 下一级」继续分支，「= 同级」并排一层";
-    if(!TOUCH_UI && lvl < 2) base = "已选中：Tab 新增下一级　·　双击改字　·　拖右下角缩放";
+    var base, alt;
+    if(LANG === "en"){
+      base = TOUCH_UI
+        ? "Selected: “+ Child” grows one level down; “Arrow” starts a link"
+        : "Selected: Tab adds a child　·　Enter adds a sibling　·　double-click edits";
+      alt = TOUCH_UI
+        ? "Selected: “+ Child” keeps branching; “= Sibling” sits beside"
+        : "Selected: Tab adds a child　·　double-click edits　·　drag corner to resize";
+    } else {
+      base = TOUCH_UI
+        ? "已选中：点「+ 下一级」往下长一层，点「箭头」拉去连线"
+        : "已选中：Tab 新增下一级　·　Enter 新增同级　·　双击改字";
+      alt = TOUCH_UI
+        ? "已选中：点「+ 下一级」继续分支，「= 同级」并排一层"
+        : "已选中：Tab 新增下一级　·　双击改字　·　拖右下角缩放";
+    }
+    if(TOUCH_UI && lvl >= 2) base = alt;
+    if(!TOUCH_UI && lvl < 2) base = alt;
     box.textContent = base;
     return;
   }
-  box.textContent = TOUCH_UI ? HINT_IDLE_TOUCH : HINT_IDLE_DESKTOP;
+  box.textContent = hintIdle();
 }
 
 function syncUI(){
@@ -6230,7 +6355,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-46";
+var APP_VERSION = "2026.11.08-47";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6278,6 +6403,7 @@ var pendingEditId = null;
 var lastSavedDoc = null;
 var touchPts = {};
 var pinch = null;
+var wheelZoom = { base:0, at:0 };
 var selBeforeTouch = null;
 var downTool = "select";
 var touchRadialOpen = false;
@@ -6530,8 +6656,8 @@ function renderBoardList(){
     var hh = String(d.getHours()).padStart(2, "0");
     var mm = String(d.getMinutes()).padStart(2, "0");
     html += '<button class="sheet' + active + '" type="button" data-id="' + b.id + '">'
-      + '<span class="sheet-name">' + escapeHTML(b.name) + '</span>'
-      + '<span class="sheet-meta"><span>' + b.elements.length + ' 个元素</span><span>' + hh + ":" + mm + '</span></span>'
+      + '<span class="sheet-name">' + escapeHTML(boardDisplayName(b)) + '</span>'
+      + '<span class="sheet-meta"><span>' + b.elements.length + (LANG === "en" ? ' items' : ' 个元素') + '</span><span>' + hh + ":" + mm + '</span></span>'
       + '<span class="sheet-ref" data-ref="' + b.id + '" title="在画布插入这张画板的引用卡">'
       + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4H5v15h15v-5M14 4h6v6M20 4l-9 9"></path></svg>'
       + '</span>'
@@ -6540,7 +6666,7 @@ function renderBoardList(){
       + '</span></button>';
   });
   list.innerHTML = html;
-  $("#boardCount").textContent = state.boards.length + " 张";
+  $("#boardCount").textContent = LANG === "en" ? ("· " + state.boards.length) : (state.boards.length + " 张");
 }
 
 function escapeHTML(s){
@@ -6673,7 +6799,7 @@ function syncBoardNameChip(){
   var t = $("#boardNameText");
   if(!t) return;
   var b = board();
-  t.textContent = (b && b.name) ? b.name : "画板";
+  t.textContent = (b && b.name) ? boardDisplayName(b) : (LANG === "en" ? "Board" : "画板");
 }
 
 function switchBoard(id){
@@ -6735,6 +6861,29 @@ function closePanel(){ panel.classList.remove("on"); scrim.classList.remove("on"
 var appEl = document.getElementById("app");
 var drawerToggle = $("#drawerToggle");
 var bodyMask = $("#body-mask");
+var foldBtn = $("#drawerFoldBtn");
+var unfoldBtn = $("#unfoldBtn");
+function syncFoldLabel(){
+  var t = $("#foldBoardName");
+  if(!t) return;
+  var b = board();
+  var n = b && b.elements ? b.elements.length : 0;
+  t.textContent = ((b && b.name) ? boardDisplayName(b) : "画板") + " · " + n + " 个元素";
+}
+function setFold(on){
+  if(!appEl) return;
+  appEl.classList.toggle("drawer-fold", !!on);
+  try{ localStorage.setItem("pb-fold", on ? "1" : "0"); }catch(e){}
+  syncFoldLabel();
+  requestRender();
+  setTimeout(function(){ syncZoom(); requestRender(); }, 210);
+}
+if(foldBtn) foldBtn.addEventListener("click", function(e){ e.stopPropagation(); setFold(true); });
+if(unfoldBtn) unfoldBtn.addEventListener("click", function(e){ e.stopPropagation(); setFold(false); });
+try{
+  if(localStorage.getItem("pb-fold") === "1") appEl.classList.add("drawer-fold");
+}catch(e){}
+
 function toggleDrawer(force){
   setTimeout(function(){ readSnaps(function(list){ fillSnapSelect(list); }); }, 0);
   if(!appEl) return;
@@ -6849,7 +6998,7 @@ $("#keysBtn").addEventListener("click", function(){
 editor.addEventListener("input", function(){
   var el = editingId ? elById(editingId) : null;
   if(!el || el.type !== "note" && el.type !== "card") return;
-  el.text = editor.value;
+  if(editor.__langEn) el.textEn = editor.value; else el.text = editor.value;
   var before = el.fontSize;
   autoFitCard(el);
   if(el.fontSize !== before){
@@ -7067,6 +7216,31 @@ var I18N_PREFIX = [
   ["至少保留一张画板", "Keep at least one board"],
   ["登录成功，这台设备已记住", "Signed in; this device is remembered"]
 ];
+/* 画布元素的双语文案：EN 状态下优先用 textEn / nameEn / labelEn */
+function elText(el){
+  if(!el) return "";
+  if(LANG === "en" && typeof el.textEn === "string") return el.textEn;
+  return el.text || "";
+}
+function elName(el){
+  if(!el) return "";
+  if(LANG === "en" && typeof el.nameEn === "string") return el.nameEn;
+  return el.name || (LANG === "en" ? "Frame" : "容器");
+}
+function elLabel(el){
+  if(!el) return "";
+  if(LANG === "en" && typeof el.labelEn === "string") return el.labelEn;
+  return el.label || "";
+}
+function boardDisplayName(b){
+  if(!b) return LANG === "en" ? "Board" : "画板";
+  if(LANG === "en"){
+    if(typeof b.nameEn === "string") return b.nameEn;
+    if(b.name === "欢迎画板") return "Welcome board";
+  }
+  return b.name || (LANG === "en" ? "Board" : "画板");
+}
+
 function tr(s){
   if(LANG !== "en" || typeof s !== "string") return s;
   if(I18N_EN[s]) return I18N_EN[s];
@@ -7139,6 +7313,8 @@ function setLang(l){
     radialHover = null;
   }
   updateFocusUI();
+  try{ renderBoardList(); syncBoardNameChip(); syncFoldLabel(); updateHint(); }catch(err){}
+  requestRender();
 }
 (function bindLang(){
   var sw = $("#langSwitch");
@@ -7192,6 +7368,10 @@ function cloudSave(){
       url: CLOUD.url, key: CLOUD.key, session: CLOUD.session
     }));
   }catch(err){}
+  try{
+    if(CLOUD.session) idbSet("cloudSess", { session: CLOUD.session, at: Date.now() }).catch(function(){});
+    else idbDelete("cloudSess").catch(function(){});
+  }catch(err){}
 }
 function cloudReady(){ return !!(CLOUD.url && CLOUD.key); }
 function cloudLinked(){ return !!(CLOUD.session && CLOUD.session.access_token && !cloudExpired()); }
@@ -7211,7 +7391,14 @@ function cloudHeaders(auth){
   };
 }
 
-async function cloudRefresh(){
+var cloudRefreshTask = null;
+function cloudRefresh(){
+  if(cloudRefreshTask) return cloudRefreshTask;   /* 并发去重：同一个 refresh_token 只能换一次 */
+  cloudRefreshTask = cloudRefreshOnce().then(function(v){ cloudRefreshTask = null; return v; },
+                                            function(){ cloudRefreshTask = null; return false; });
+  return cloudRefreshTask;
+}
+async function cloudRefreshOnce(){
   if(!CLOUD.session || !CLOUD.session.refresh_token) return false;
   try{
     var r = await fetch(CLOUD.url + "/auth/v1/token?grant_type=refresh_token", {
@@ -7237,9 +7424,9 @@ async function cloudAuth(path, body, withAuth){
   var auth = null;
   if(withAuth){
     if(cloudExpired()){
-      var ok = await cloudRefresh();
-      if(!ok) throw new Error("登录已过期，请重新用邮箱验证码登录");
+      await cloudRefresh();   /* 换取失败也继续用旧 token 试，别因为一次网络抖动就让用户重新登录 */
     }
+    if(!CLOUD.session || !CLOUD.session.access_token) throw new Error("请先登录云端账号");
     auth = CLOUD.session.access_token;
   }
   var r = await fetch(CLOUD.url + path, {
@@ -7397,6 +7584,7 @@ function cloudSchedulePush(){
 function cloudRestoreSession(done){
   if(!CLOUD.session){ done(false, "none"); return; }
   if(!cloudExpired()){
+    CLOUD.retryCount = 0;
     cloudPaint();
     cloudStartPolling();
     done(true, "fresh");
@@ -7411,6 +7599,19 @@ function cloudRestoreSession(done){
         done(true, "refreshed");
       }).catch(function(){ done(true, "refreshed"); });
     } else {
+      /* 网络抖动 / refresh 被其它标签页消耗：稍后自动再试，不要求用户重新登录 */
+      var tries = (CLOUD.retryCount || 0) + 1;
+      CLOUD.retryCount = tries;
+      if(tries <= 5){
+        clearTimeout(CLOUD.retryTimer);
+        CLOUD.retryTimer = setTimeout(function(){
+          cloudPaint("正在重新连接云端…");
+          cloudRestoreSession(done);
+        }, 4000 * tries);
+        done(false, "retry");
+        return;
+      }
+      CLOUD.retryCount = 0;
       done(false, "expired");
     }
   }).catch(function(){ done(false, "expired"); });
@@ -7534,6 +7735,17 @@ function wireCloudUI(){
 /* 登录页：邮箱验证码（云端） */
 function afterCloudLogin(){
   hideLogin();
+  if(!CLOUD.session){
+    idbGet("cloudSess").then(function(v){
+      if(v && v.session && !CLOUD.session){
+        CLOUD.session = v.session;
+        cloudSave();
+        cloudRestoreSession(function(ok){
+          if(!ok) cloudPaint("云端正在重连…");
+        });
+      }
+    }).catch(function(){});
+  }
   cloudStartPolling();
   cloudPaint();
   toast("云端登录成功");
@@ -7900,6 +8112,7 @@ function boot(){
          oldW.elements.some(function(e){ return /改完的内容会自动存进备份文件夹/.test(e.text || ""); })){
         oldW.elements = welcomeTourElements();
         oldW.camera = welcomeTourCamera();
+        oldW.nameEn = "Welcome board";
         scheduleSave();
       }
       state.activeId = doc.activeId && doc.boards.some(function(b){ return b.id === doc.activeId; })
@@ -7908,6 +8121,7 @@ function boot(){
       var welcome = newBoard("欢迎画板");
       welcome.elements = welcomeTourElements();
       welcome.camera = welcomeTourCamera();
+      welcome.nameEn = "Welcome board";
       state.boards = [welcome];
       state.activeId = welcome.id;
       DEFAULT_DOC = true;
