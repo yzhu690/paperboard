@@ -589,14 +589,17 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
   background:#151a21;
   box-shadow:0 10px 28px rgba(21,26,33,.24);
   z-index:19;
-  min-width:206px;
+  min-width:248px;
 }
 #expPop.on{display:block}
 .exp-row{display:flex;gap:6px;margin-bottom:6px}
 .exp-row:last-child{margin-bottom:0}
 #expPop button{
   flex:1;
+  min-width:0;
   height:32px;
+  white-space:nowrap;
+  padding:0 8px;
   border:none;
   border-radius:8px;
   background:#222a33;
@@ -608,7 +611,7 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
 #expPop button:hover{background:#2e3843}
 #expPop .exp-scope button{height:30px;font-size:11.5px;color:#c3ccd2}
 #expPop .exp-scope button.is-on{background:var(--accent);color:#151a21;font-weight:600}
-#expPop .exp-fmt{font-weight:500}
+#expPop .exp-fmt{font-weight:500;font-size:11.5px}
 
 #nodeOps{
   position:fixed;
@@ -968,10 +971,10 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
 }
 #connStyle.on{display:flex}
 .cs-row{display:flex;align-items:center;gap:9px}
-.cs-k{font-size:10px;color:#8b959d;letter-spacing:.1em;width:24px;flex:0 0 24px}
+.cs-k{font-size:10px;color:#8b959d;letter-spacing:.06em;width:34px;flex:0 0 34px;white-space:nowrap}
 .cs-seg{display:flex;gap:2px;background:#2a333d;padding:2px;border-radius:5px}
 .cs-btn{
-  width:27px;height:24px;
+  min-width:27px;height:24px;padding:0 7px;white-space:nowrap;
   border:none;background:transparent;
   color:#c3ccd2;border-radius:4px;
   cursor:pointer;display:grid;place-items:center;
@@ -2059,7 +2062,7 @@ var state = {
   walking: false,
   walkIdx: 0,
   preview: null,
-  settings: { conn: { start:"none", end:"arrow", stroke:"#1F2125", width:1.8, dash:"solid" } }
+  settings: { conn: { start:"none", end:"arrow", stroke:"#1F2125", width:1.8, dash:"solid", labelColor:"red" } }
 };
 
 var cam = { x: 0, y: 0, zoom: 1 };
@@ -2793,36 +2796,46 @@ function drawConnector(conn){
 }
 
 /* 连线中间的红色说明：字号取所连便签高度的 1/4 */
+var CONN_LABEL_COLORS = { red:"#d2503c", ink:"#151a21" };
+function connLabelColor(conn){
+  var k = (conn && conn.labelColor) || (state.settings.conn && state.settings.conn.labelColor) || "red";
+  return CONN_LABEL_COLORS[k] || CONN_LABEL_COLORS.red;
+}
 function connLabelFontSize(conn){
   var base = 140;
   var a = elById(conn.from), b2 = elById(conn.to);
   if(a && a.type === "note") base = a.h;
   else if(b2 && b2.type === "note") base = b2.h;
   else if(a && a.h) base = a.h;
-  return Math.max(12, Math.min(44, Math.round(base * 0.25)));
+  /* 说明文字只做注脚，不做主角：约为原字号的 1/3 */
+  return Math.max(10, Math.min(16, Math.round(base * 0.08)));
 }
-function drawMidLabel(mid, label, fs){
+function drawMidLabel(mid, label, fs, color){
   ctx.save();
   ctx.font = "500 " + fs + "px 'Noto Sans SC','PingFang SC',sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   var lines = wrapLines(ctx, label, Math.max(60, 320 / Math.max(0.2, cam.zoom)));
-  var lh = fs * 1.32;
+  var lh = fs * 1.35;
   var y0 = mid.y - (lines.length - 1) * lh / 2;
   for(var i = 0; i < lines.length; i++){
     var txt = lines[i];
     var w = ctx.measureText(txt).width;
     var y = y0 + i * lh;
-    ctx.fillStyle = "rgba(255,255,255,.92)";
-    roundRect(ctx, mid.x - w / 2 - 4, y - lh / 2, w + 8, lh, 4);
+    ctx.fillStyle = "rgba(255,255,255,.96)";
+    roundRect(ctx, mid.x - w / 2 - 4, y - lh / 2, w + 8, lh, 3);
     ctx.fill();
-    ctx.fillStyle = "#d2503c";
+    ctx.strokeStyle = "rgba(21,26,33,.07)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, mid.x - w / 2 - 4, y - lh / 2, w + 8, lh, 3);
+    ctx.stroke();
+    ctx.fillStyle = color || CONN_LABEL_COLORS.red;
     ctx.fillText(txt, mid.x, y);
   }
   ctx.restore();
 }
 function drawConnLabel(g, conn){
-  drawMidLabel(g.mid, conn.label, connLabelFontSize(conn));
+  drawMidLabel(g.mid, conn.label, connLabelFontSize(conn), connLabelColor(conn));
 }
 
 /* ---- 卡片绘制 ---- */
@@ -3012,6 +3025,53 @@ var FRAME_RATIOS = {
   "1:1":  { w:340, h:340 }
 };
 
+/* ---------- 欢迎画板：左边成品，右边步骤 ---------- */
+function welcomeTourCamera(){
+  var v = viewSize();
+  if(v.w >= 900) return null;           /* 桌面：交给 fitToContent 自适应 */
+  var z = 0.66;
+  var box = { x:-640, y:-402, w:1234, h:534 };
+  return {
+    x: box.x - 12,
+    y: box.y - 110 / z,
+    zoom: z, seen: true
+  };   /* 手机：先把成品放正中间，左右一滑就是步骤 */
+}
+function welcomeTourElements(){
+  var wf = { id:uid(), type:"frame", x:-640, y:-350, w:560, h:430,
+             name:"成品区 · 一个容器装一件事" };
+  var A = { id:uid(), type:"note", x:-610, y:-292, w:188, h:112, fill:"#ffe9a8", fontSize:13.5,
+            text:"右键或长按，\n唤出圆环命令" };
+  var B = { id:uid(), type:"note", x:-392, y:-292, w:188, h:112, fill:"#cfe0f5", fontSize:13.5,
+            text:"选「下一级」，\n新便签自己长出来" };
+  var C = { id:uid(), type:"note", x:-392, y:-150, w:188, h:112, fill:"#cfe8dc", fontSize:13.5,
+            text:"两根便签之间\n拉一根箭头" };
+  var conn1 = { id:uid(), type:"connector", from:A.id, to:B.id, bend:0 };
+  var conn2 = { id:uid(), type:"connector", from:B.id, to:C.id, bend:0, label:"写一句说明", labelColor:"red" };
+  var star = { id:uid(), type:"text", x:-196, y:-300, w:62, h:62, fontSize:38,
+               color:"#151a21", text:"✨", emoji:true, align:"center" };
+
+  var card = { id:uid(), type:"note", x:-56, y:-402, w:650, h:534, fill:"#ffffff", fontSize:14, text:"" };
+  var title = { id:uid(), type:"text", x:-20, y:-386, w:600, h:44, fontSize:21, color:"#151a21",
+                text:"7 步做完左边这张图" };
+  var steps = [
+    "① 右键（手机上长按 350ms）→ 命令圆环弹出来",
+    "② 圆环内圈挑一个容器（3:4 / 16:9），先定「装什么」",
+    "③ 圆环外圈点「便签」，在容器里落第一张",
+    "④ 选中便签 → 浮标「下一级」，子便签自带连线长出来",
+    "⑤ 拖「箭头」连两个元素；选中能改粗细 / 实虚 / 颜色",
+    "⑥ 双击箭头写一句说明（字号已调小，可切黑或红）",
+    "⑦ 圆环「表情」放个 ✨ 当标记，要紧的事一眼看到",
+    "⑧ 点「眼睛」→ 容器逐页演示；点「导出」→ PNG / SVG / 文本"
+  ].map(function(t, i){
+    return { id:uid(), type:"text", x:-20, y:-322 + i * 44, w:600, h:36,
+             fontSize:14.5, color:"#3f4750", text:t };
+  });
+  var foot = { id:uid(), type:"text", x:-20, y:44, w:600, h:64, fontSize:13.5, color:"#7a838b",
+               text:"左边是成品，右边是照着做一遍的步骤。做完这一张，整个白板就会用了。" };
+  return [wf, A, B, C, conn1, conn2, star, card, title].concat(steps, [foot]);
+}
+
 function mkFrame(ratio, wx, wy){
   var r = FRAME_RATIOS[ratio] || FRAME_RATIOS["3:4"];
   return {
@@ -3146,7 +3206,7 @@ function drawElement(el){
     drawTip(ee.b.x, ee.b.y, Math.atan2(ee.b.y - ee.a.y, ee.b.x - ee.a.x), stL.end, stL);
     if(el.label){
       var midA = { x:(ee.a.x + ee.b.x) / 2, y:(ee.a.y + ee.b.y) / 2 };
-      drawMidLabel(midA, el.label, connLabelFontSize(el));
+      drawMidLabel(midA, el.label, connLabelFontSize(el), connLabelColor(el));
     }
     ctx.setLineDash([]);
     return;
@@ -5073,7 +5133,7 @@ function svgForBoard(b){
     parts.push(tip(g.p1.x, g.p1.y, Math.atan2(g.p1.y - g.c.y, g.p1.x - g.c.x), st.start));
     parts.push(tip(g.p2.x, g.p2.y, Math.atan2(g.p2.y - g.c.y, g.p2.x - g.c.x), st.end));
     if(el.label){
-      parts.push('<text x="' + g.mid.x + '" y="' + (g.mid.y) + '" text-anchor="middle" dominant-baseline="middle" font-family="Noto Sans SC,sans-serif" font-size="' + connLabelFontSize(el) + '" font-weight="500" fill="#d2503c" stroke="#ffffff" stroke-width="2.4" paint-order="stroke">' + esc0(el.label) + '</text>');
+      parts.push('<text x="' + g.mid.x + '" y="' + (g.mid.y) + '" text-anchor="middle" dominant-baseline="middle" font-family="Noto Sans SC,sans-serif" font-size="' + connLabelFontSize(el) + '" font-weight="500" fill="' + connLabelColor(el) + '" stroke="#ffffff" stroke-width="2" paint-order="stroke">' + esc0(el.label) + '</text>');
     }
   });
 
@@ -5626,11 +5686,15 @@ function buildConnPanel(){
     '<div class="cs-row"><span class="cs-k">' + tr("颜色") + '</span><div class="cs-colors">' +
       colors.map(function(c){ return '<button type="button" class="cs-dot" data-stroke="' + c + '" style="background:' + c + '"></button>'; }).join("") +
     '</div></div>' +
+    '<div class="cs-row"><span class="cs-k">' + tr("说明字") + '</span><div class="cs-seg" data-kind="label">' +
+      '<button type="button" class="cs-btn" data-label="red" title="说明文字用红色"><span style="color:#d2503c;font-size:11px">红</span></button>' +
+      '<button type="button" class="cs-btn" data-label="ink" title="说明文字用黑色"><span style="color:#151a21;font-size:11px">黑</span></button>' +
+    '</div></div>' +
     '<div class="cs-row"><button type="button" id="csDefault">' + tr("把当前样式存为默认") + '</button></div>';
 
   if(connPanelBuilt) return;
   box.addEventListener("click", function(e){
-    var t = e.target.closest("[data-tip],[data-width],[data-dash],[data-stroke],#csDefault");
+    var t = e.target.closest("[data-tip],[data-width],[data-dash],[data-stroke],[data-label],#csDefault");
     if(!t) return;
     var conns = board().elements.filter(function(el){
       return state.selection.indexOf(el.id) >= 0 &&
@@ -5656,6 +5720,14 @@ function buildConnPanel(){
       var sc = t.getAttribute("data-stroke");
       conns.forEach(function(c){ styleOf(c).stroke = sc; });
       historyPush(); requestRender(); syncUI(); scheduleSave();
+    } else if(t.hasAttribute("data-label")){
+      var lk = t.getAttribute("data-label");
+      conns.forEach(function(c){ c.labelColor = lk; });
+      state.settings.conn = Object.assign({}, state.settings.conn, { labelColor: lk });
+      idbSet("settings", { conn: state.settings.conn }).catch(function(){});
+      historyPush(); requestRender(); syncUI(); scheduleSave();
+      var noLabel = conns.every(function(c){ return !c.label; });
+      if(noLabel) toast("颜色已记住：双击连线写一句说明就会显示");
     } else if(t.id === "csDefault"){
       var one = conns[0];
       state.settings.conn = Object.assign({}, state.settings.conn, styleOf(one));
@@ -5684,6 +5756,10 @@ function syncConnPanel(conns){
   });
   box.querySelectorAll(".cs-dot").forEach(function(b){
     b.classList.toggle("is-on", b.getAttribute("data-stroke") === st.stroke);
+  });
+  box.querySelectorAll(".cs-btn[data-label]").forEach(function(b){
+    var lk = conns[0].labelColor || (state.settings.conn && state.settings.conn.labelColor) || "red";
+    b.classList.toggle("is-on", b.getAttribute("data-label") === lk);
   });
   box.querySelectorAll(".cs-btn[data-dash]").forEach(function(b){
     var d = st.dash || "solid";
@@ -6154,7 +6230,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-45";
+var APP_VERSION = "2026.11.08-46";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6621,6 +6697,10 @@ function switchBoard(id){
   requestRender();
   syncUI();
   if(!b.camera || !b.camera.seen){ fitToContent(); b.camera = { x:cam.x, y:cam.y, zoom:cam.zoom, seen:true }; }
+  if(b.name === "欢迎画板" && viewSize().w < 900 && !sessionStorage.getItem("pb-tour-tip")){
+    sessionStorage.setItem("pb-tour-tip", "1");
+    setTimeout(function(){ toast("右边是 7 步教程 · 双指左右滑动查看"); }, 700);
+  }
   scheduleSave();
 }
 
@@ -7814,18 +7894,20 @@ function boot(){
     }
     if(doc && doc.boards && doc.boards.length){
       state.boards = doc.boards;
+      /* 老用户的出厂欢迎画板升级为「左成品 + 右步骤」教程版 */
+      var oldW = state.boards.filter(function(b){ return b.name === "欢迎画板"; })[0];
+      if(oldW && Array.isArray(oldW.elements) && oldW.elements.length === 3 &&
+         oldW.elements.some(function(e){ return /改完的内容会自动存进备份文件夹/.test(e.text || ""); })){
+        oldW.elements = welcomeTourElements();
+        oldW.camera = welcomeTourCamera();
+        scheduleSave();
+      }
       state.activeId = doc.activeId && doc.boards.some(function(b){ return b.id === doc.activeId; })
         ? doc.activeId : doc.boards[0].id;
     } else {
       var welcome = newBoard("欢迎画板");
-      welcome.elements = [
-        { id:uid(), type:"note", x:-260, y:-150, w:260, h:200, fill:"#ffe9a8", fontSize:17,
-          text:"这是一张便签。双击可以改写，选中后工具栏会出现配色。" },
-        { id:uid(), type:"note", x:20, y:-150, w:260, h:200, fill:"#cfe0f5", fontSize:17,
-          text:"左侧是画板抽屉：新建、切换、删除画板都在那里。" },
-        { id:uid(), type:"text", x:-260, y:80, w:560, h:70, fontSize:15, color:"#5c656f",
-          text:"改完的内容会自动存进备份文件夹，百度网盘客户端会把它同步上云。" }
-      ];
+      welcome.elements = welcomeTourElements();
+      welcome.camera = welcomeTourCamera();
       state.boards = [welcome];
       state.activeId = welcome.id;
       DEFAULT_DOC = true;
