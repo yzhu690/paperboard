@@ -583,7 +583,7 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
   position:fixed;
   display:none;
   right:18px;
-  bottom:62px;
+  bottom:72px;
   padding:8px;
   border-radius:12px;
   background:#151a21;
@@ -660,9 +660,9 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
   left:18px;
   bottom:20px;
   font-family:var(--font-mono);
-  font-size:10.5px;
-  color:#9aa3a0;
-  letter-spacing:.03em;
+  font-size:12px;
+  color:#5b646c;
+  letter-spacing:.01em;
   pointer-events:none;
   z-index:2;
   max-width:min(560px, calc(100vw - 130px));
@@ -671,7 +671,7 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
   text-overflow:ellipsis;
 }
 @media (max-width:520px){
-  #hint{left:14px;bottom:74px;font-size:10px;max-width:calc(100vw - 28px)}
+  #hint{left:14px;bottom:86px;font-size:11.5px;max-width:calc(100vw - 78px)}
 }
 
 /* 行内文字编辑 */
@@ -708,7 +708,7 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
   right:22px;
   top:64px;
   width:min(392px, calc(100vw - 24px));
-  max-height:calc(100vh - 96px);
+  max-height:calc(100vh - 168px);
   overflow-y:auto;
   overscroll-behavior:contain;
   scrollbar-width:thin;
@@ -890,19 +890,24 @@ html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
 .crop-btn.is-main{background:var(--ink);color:#fff;border-color:var(--ink)}
 
 /* 快捷键表 */
+.keys-foot{
+  margin:14px 0 2px;padding-top:10px;border-top:1px solid #eef1ef;
+  font-size:11px;color:#8a939a;text-align:center;
+}
 #keys{
   display:none;
   position:fixed;
   right:22px;
-  bottom:72px;
+  bottom:76px;
   width:min(340px, calc(100vw - 32px));
   background:var(--paper-2);
   border-radius:8px;
   box-shadow:0 2px 8px rgba(21,26,33,.14), 0 28px 56px -30px rgba(21,26,33,.55);
-  padding:14px 16px;
+  padding:14px 16px 6px;
   z-index:10;
-  max-height:calc(100vh - 150px);
+  max-height:calc(100vh - 170px);
   overflow:auto;
+  padding-bottom:18px;
   scrollbar-width:thin;
   z-index:18;
 }
@@ -1148,7 +1153,6 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
   position:absolute;
   top:14px;
   left:50%;
-  transform:translateX(-50%);
   display:none;
   gap:5px;
   padding:6px 8px;
@@ -1277,8 +1281,8 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
   box-shadow:0 8px 20px -12px rgba(21,26,33,.55);
   transition:background .15s,color .15s,transform .15s;
 }
-#undoBtn{bottom:214px}
-#redoBtn{bottom:262px}
+#undoBtn{bottom:262px}
+#redoBtn{bottom:214px}
 #undoBtn:hover,#redoBtn:hover{background:#151a21;color:#ffffff;transform:translateY(-1px)}
 #undoBtn:disabled,#redoBtn:disabled{opacity:.4;cursor:default;background:#fff;color:#2b3238;transform:none}
 
@@ -1322,6 +1326,13 @@ body.is-focus #board{background:#f2f3f1}
   background:rgba(255,255,255,.94);cursor:pointer;box-shadow:var(--shadow-card);color:#3b4249;
 }
 #drawerToggle svg{width:18px;height:18px}
+#boardNameChip{
+  display:none;position:absolute;top:14px;left:60px;max-width:38vw;height:38px;
+  align-items:center;padding:0 12px;border-radius:11px;background:rgba(255,255,255,.94);
+  border:1px solid #e3e7e9;box-shadow:var(--shadow-card);z-index:12;
+  font-size:12.5px;color:#3b4249;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+@media (max-width:820px){ #boardNameChip{display:flex} }
 @media (max-width:820px){
   #app{min-width:0;min-height:0;position:relative}
   #drawer{
@@ -1334,13 +1345,13 @@ body.is-focus #board{background:#f2f3f1}
   #app.drawer-open #body-mask{opacity:1;pointer-events:auto}
   #drawerToggle{display:flex}
   #toolbar{top:auto;bottom:86px;left:50%}
-  #backupChip{top:14px;right:14px;max-width:44vw;overflow:hidden;white-space:nowrap}
+  #backupChip{top:12px;right:12px;height:30px;max-width:40vw;overflow:hidden;white-space:nowrap;font-size:10.5px;padding:0 10px 0 9px;gap:7px;border-radius:999px;background:rgba(255,255,255,.94);color:#4a5359;border:1px solid #e3e7e9;box-shadow:0 1px 4px rgba(21,26,33,.08)}
   #zoomBar{bottom:14px;right:12px}
   #eyeBtn{bottom:70px;right:14px}
-  #undoBtn{bottom:118px;right:14px;width:38px;height:38px}
-  #redoBtn{bottom:164px;right:14px;width:38px;height:38px}
-  #colorPill{top:60px;left:14px;right:auto;transform:none}
-  #panel{right:10px;top:54px;max-height:calc(100vh - 68px);width:calc(100vw - 20px)}
+  #undoBtn{bottom:164px;right:14px;width:38px;height:38px}
+  #redoBtn{bottom:118px;right:14px;width:38px;height:38px}
+  #colorPill{}
+  #panel{right:10px;top:54px;max-height:calc(100vh - 150px);width:calc(100vw - 20px);bottom:auto}
   .panel-body,.panel-head{padding-left:14px;padding-right:14px}
   .man-card{padding:12px 12px 10px}
   .man-badge{font-size:26px;flex-basis:26px}
@@ -1476,6 +1487,7 @@ details.man-adv .inner{padding:0 12px 12px}
       <button type="button" class="pv-commit" id="pvCommit" data-zh="恢复这一版" data-en="Restore this">恢复这一版</button>
       <button type="button" id="pvBack" data-zh="回到当前" data-en="Back to now">回到当前</button>
     </div>
+    <div id="boardNameChip"><span id="boardNameText">画板</span></div>
     <button id="drawerToggle" type="button" title="画板抽屉">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
@@ -1868,6 +1880,7 @@ create policy "own docs" on pb_docs
   <div class="kl"><kbd>喇叭</kbd><span>右上角按钮开 / 关，默认开着</span></div>
   <div class="kl"><kbd>响</kbd><span>只在新增、删除时响；移动改色不响</span></div>
   <div class="keys-note">上面写 Ctrl 的地方，Mac 上按 Command（Cmd）键效果相同（撤销、复制、全选、粘贴都通用）。</div>
+  <div class="keys-foot">点右上角 ? 或按 Esc 关闭　·　面板可上下滚动</div>
 </div>
 
 <div id="cropPop" class="crop-pop">
@@ -2494,6 +2507,7 @@ function requestRender(){
 
 function draw(){
   var v = viewSize();
+  positionColorPill();
   refreshDpr();
   if(cv.width !== Math.floor(v.w * dpr) || cv.height !== Math.floor(v.h * dpr)){
     cv.width = Math.floor(v.w * dpr);
@@ -2559,7 +2573,24 @@ function draw(){
   if(!state.focus) drawSelectionOverlay();
   if(state.marquee && !state.focus) drawMarquee();
   drawAlignGuides();
+  drawEmptyHint(v);
   updateNodeOps();
+}
+
+/* 空白画板：在视野正中给一次引导，而不是只在角落留一行小字 */
+function drawEmptyHint(v){
+  var b = board();
+  if(!b || b.elements.length || state.focus || editingId || state.marquee) return;
+  var cx = v.w / 2, cy = v.h / 2 - 10;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(21,26,33,.62)";
+  ctx.font = '500 ' + (TOUCH_UI ? 17 : 19) + 'px "Noto Sans SC", system-ui, sans-serif';
+  ctx.fillText("双击空白，创建第一张便签", cx, cy);
+  ctx.fillStyle = "rgba(21,26,33,.34)";
+  ctx.font = '400 ' + (TOUCH_UI ? 12 : 13) + 'px "Noto Sans SC", system-ui, sans-serif';
+  ctx.fillText(TOUCH_UI ? "长按画布 → 命令圆环　·　双指缩放、拖动平移" : "按住右键转一圈松开 → 命令圆环　·　空格拖动、Ctrl 滚轮缩放", cx, cy + 26);
+  ctx.restore();
 }
 
 function drawGrid(v){
@@ -5400,8 +5431,8 @@ function nodeOpsEl(){
     }
     var spans = box.querySelectorAll("button span");
     for(var si = 0; si < spans.length; si++) spans[si].style.display = "none";
-    box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "44px"; b3.style.fontSize = "14px"; b3.style.padding = "0 17px 0 11px"; });
-    box.querySelectorAll("button i").forEach(function(i3){ i3.style.width = "24px"; i3.style.height = "24px"; i3.style.borderRadius = "12px"; });
+    box.querySelectorAll("button").forEach(function(b3){ b3.style.height = "40px"; b3.style.fontSize = "12.5px"; b3.style.padding = "0 12px 0 8px"; b3.style.gap = "5px"; });
+    box.querySelectorAll("button i").forEach(function(i3){ i3.style.width = "21px"; i3.style.height = "21px"; i3.style.borderRadius = "11px"; });
   }
   return box;
 }
@@ -5433,14 +5464,45 @@ function updateNodeOps(){
   box.setAttribute("data-id", one.id);
   box.classList.add("on");
 
-  var bb = bboxEl(one), p2 = toScreen(bb.x + bb.w, bb.y), p1 = toScreen(bb.x, bb.y - 44);
-  var off = boardOff();
+  var bb = bboxEl(one), off = boardOff();
   var w = box.offsetWidth || 160, h = box.offsetHeight || 36;
-  var left = off.x + p2.x + 10, top = off.y + p1.y;
+  var pT = toScreen(bb.x, bb.y), pB = toScreen(bb.x, bb.y + bb.h);
+  var left, top;
+  if(TOUCH_UI){
+    /* 手机：配色条占上方，浮标挂到元素下方，别打架 */
+    left = off.x + pT.x;
+    top = off.y + pB.y + 12;
+    if(top + h > window.innerHeight - 96) top = off.y + pT.y - h - 12;
+  } else {
+    left = off.x + toScreen(bb.x + bb.w, bb.y).x + 10;
+    top = off.y + pT.y - 44;
+  }
   left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
   top = Math.max(10, Math.min(top, window.innerHeight - h - 10));
   box.style.left = Math.round(left) + "px";
   box.style.top = Math.round(top) + "px";
+}
+
+/* 配色条贴着选中的便签走，而不是钉在屏幕顶上 */
+function positionColorPill(){
+  var pill = $("#colorPill");
+  if(!pill || !pill.classList.contains("on")) return;
+  var el = null;
+  for(var i = 0; i < state.selection.length; i++){
+    var c = elById(state.selection[i]);
+    if(c && c.type === "note"){ el = c; break; }
+  }
+  if(!el) return;
+  var bb = bboxEl(el), off = boardOff();
+  var tl = toScreen(bb.x, bb.y), br = toScreen(bb.x + bb.w, bb.y + bb.h);
+  var w = pill.offsetWidth || 150, h = pill.offsetHeight || 34;
+  var cx = off.x + (tl.x + br.x) / 2;
+  var top = off.y + tl.y - h - 10;
+  if(top < 8) top = off.y + br.y + 10;              /* 上面放不下就放下面 */
+  var left = Math.max(8, Math.min(cx - w / 2, window.innerWidth - w - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+  pill.style.left = Math.round(left) + "px";
+  pill.style.top = Math.round(top) + "px";
 }
 
 function boardOff(){
@@ -5494,6 +5556,7 @@ function syncUI(){
   sw.classList.toggle("on", selNotes.length > 0);
   var pill = $("#colorPill");
   pill.classList.toggle("on", selNotes.length > 0);
+
   if(selNotes.length){
     var pdots = pill.querySelectorAll(".swatch");
     for(var pi = 0; pi < pdots.length; pi++){
@@ -5518,6 +5581,7 @@ function syncUI(){
   if(eye) eye.classList.toggle("is-on", !!state.focus);
   updateHint();
   updateNodeOps();
+  syncBoardMeta();
   paintExpScope();
 }
 
@@ -6090,7 +6154,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-44";
+var APP_VERSION = "2026.11.08-45";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6368,7 +6432,20 @@ function boardByIndex(){
   return state.boards;
 }
 
+/* 侧栏当前画板的「元素数 / 时间」跟着画布走，不用整表重绘 */
+function syncBoardMeta(){
+  var b = board();
+  if(!b) return;
+  var row = document.querySelector('#boardList .sheet.is-active .sheet-meta');
+  if(!row){ renderBoardList(); return; }
+  var d = new Date(b.updatedAt || Date.now());
+  var hh = String(d.getHours()).padStart(2, "0");
+  var mm = String(d.getMinutes()).padStart(2, "0");
+  row.innerHTML = '<span>' + b.elements.length + ' 个元素</span><span>' + hh + ":" + mm + '</span>';
+}
+
 function renderBoardList(){
+  syncBoardNameChip();
   var list = $("#boardList");
   var html = "";
   state.boards.forEach(function(b){
@@ -6516,6 +6593,13 @@ $("#boardList").addEventListener("click", function(e){
   if(sheet){ switchBoard(sheet.getAttribute("data-id")); return; }
 });
 
+function syncBoardNameChip(){
+  var t = $("#boardNameText");
+  if(!t) return;
+  var b = board();
+  t.textContent = (b && b.name) ? b.name : "画板";
+}
+
 function switchBoard(id){
   if(typeof toggleDrawer === "function") toggleDrawer(false);
   var b = state.boards.filter(function(x){ return x.id === id; })[0];
@@ -6527,6 +6611,7 @@ function switchBoard(id){
   cam.y = b.camera && b.camera.y ? b.camera.y : 0;
   cam.zoom = b.camera && b.camera.zoom ? b.camera.zoom : 1;
   historyReset();
+  syncBoardNameChip();
   if(!Array.isArray(b.walkOrder)) b.walkOrder = [];
   if(state.focus){ state.focus = false; document.body.classList.remove("is-focus"); $("#focusTag").classList.remove("on"); }
   $("#walkBar").classList.remove("on");
