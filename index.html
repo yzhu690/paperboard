@@ -4291,7 +4291,7 @@ cv.addEventListener("pointermove", function(e){
       var pl2 = pointer({ clientX: pm2.x, clientY: pm2.y });
       touchGestureAt = Date.now();
       var rawZ = pinch.z0 * (pd / pinch.d0);
-      cam.zoom = clamp(clamp(rawZ, pinch.z0 / 1.3, pinch.z0 * 1.3), 0.08, 5);
+      cam.zoom = clamp(rawZ, 0.08, 5);   /* 跟手，不做单次限幅 */
       cam.x = pinch.w0.x - pl2.x / cam.zoom;
       cam.y = pinch.w0.y - pl2.y / cam.zoom;
       syncZoom(); requestRender();
@@ -4713,13 +4713,8 @@ cv.addEventListener("wheel", function(e){
   e.preventDefault();
   var sp = pointer(e);
   if(e.ctrlKey || e.metaKey){
-    var now = Date.now();
-    if(!wheelZoom.base || now - wheelZoom.at > 600){
-      wheelZoom.base = cam.zoom;
-    }
-    wheelZoom.at = now;
-    var want = clamp(cam.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12),
-                     wheelZoom.base / 1.3, wheelZoom.base * 1.3);
+    /* 按 delta 连续换算，滚多少放大多少，不做单次封顶 */
+    var want = cam.zoom * Math.pow(1.0015, -e.deltaY);
     zoomTo(sp.x, sp.y, want);
   } else {
     if(e.shiftKey){
@@ -6355,7 +6350,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-47";
+var APP_VERSION = "2026.11.08-48";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6403,7 +6398,6 @@ var pendingEditId = null;
 var lastSavedDoc = null;
 var touchPts = {};
 var pinch = null;
-var wheelZoom = { base:0, at:0 };
 var selBeforeTouch = null;
 var downTool = "select";
 var touchRadialOpen = false;
