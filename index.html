@@ -6350,7 +6350,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-49";
+var APP_VERSION = "2026.11.08-50";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6397,18 +6397,16 @@ function probeVersion(){
     "https://yzhu690.github.io/paperboard/version.json" + stamp,
     "version.json" + stamp
   ];
-  var tasks = urls.map(function(u){ return fetchJSON(u, 4500); });
-  tasks.push(probeSelf());
-  if(typeof Promise.any !== "function"){
-    return new Promise(function(resolve){
-      var i = 0;
-      (function next(){
-        if(i >= tasks.length) return resolve(null);
-        tasks[i++].then(function(d){ resolve(d); }, next);
-      })();
+  var tasks = urls.map(function(u){ return fetchJSON(u, 4500).catch(function(){ return null; }); });
+  /* 先看自己这份页面的版本：同源一定能拿到，也最准（避免 CDN 缓存旧值误报） */
+  return probeSelf().catch(function(){
+    return Promise.all(tasks).then(function(list){
+      for(var i = 0; i < list.length; i++){
+        if(list[i] && list[i].version) return list[i];
+      }
+      return null;
     });
-  }
-  return Promise.any(tasks).catch(function(){ return null; });
+  });
 }
 function checkUpdate(){
   try{
