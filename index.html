@@ -2444,6 +2444,50 @@ function zoomAt(sx, sy, factor){
   zoomTo(sx, sy, cam.zoom * factor);
 }
 
+/* 缩放不给手感加限速：手势期间一比一跟手，
+   松手后按最后一小段速度补一个「缓停」，避免戛然而止 */
+var zoomGlide = { vel:0, sx:0, sy:0, at:0, raf:0, timer:0 };
+
+/* 新手势开始：只打断正在跑的缓停，保留速度估计，避免每帧重置导致抖动 */
+function zoomGlideCancel(){
+  clearTimeout(zoomGlide.timer); zoomGlide.timer = 0;
+  if(zoomGlide.raf){ cancelAnimationFrame(zoomGlide.raf); zoomGlide.raf = 0; }
+}
+function zoomGlideTrack(z0, z1, sx, sy){
+  if(!z0 || !z1) return;
+  var now = Date.now();
+  var dt = zoomGlide.at ? Math.max(8, now - zoomGlide.at) : 16;
+  var v = Math.log(z1 / z0) / (dt / 1000);          /* 每秒的缩放对数速度 */
+  zoomGlide.vel = zoomGlide.vel ? (zoomGlide.vel * 0.55 + v * 0.45) : v;
+  zoomGlide.vel = Math.max(-3.6, Math.min(3.6, zoomGlide.vel * 0.45));
+  zoomGlide.sx = sx; zoomGlide.sy = sy; zoomGlide.at = now;
+  clearTimeout(zoomGlide.timer);
+  zoomGlide.timer = setTimeout(zoomGlideRun, 90);     /* 手势停 90ms 后开始缓停 */
+}
+function zoomGlideRun(){
+  zoomGlide.timer = 0;
+  if(zoomGlide.raf || Math.abs(zoomGlide.vel) < 0.2) return;
+  var dir = zoomGlide.vel > 0 ? 1 : -1;
+  var anchor = cam.zoom;
+  var limit = anchor * (1 + dir * 0.10);             /* 缓停最多再走 10%，不喧宾夺主 */
+  var acc = 0, last = 0;
+  function step(t){
+    if(!last) last = t;
+    var dt = Math.min(0.05, (t - last) / 1000);
+    last = t; acc += dt;
+    var v = zoomGlide.vel * Math.exp(-dt / 0.26);    /* 指数衰减，尾部很轻 */
+    zoomGlide.vel = v;
+    var next = cam.zoom * Math.exp(v * dt);
+    if((dir > 0 && next > limit) || (dir < 0 && next < limit)) next = limit;
+    zoomTo(zoomGlide.sx, zoomGlide.sy, next);
+    if(Math.abs(v) < 0.04 || acc > 0.62){
+      zoomGlide.raf = 0; zoomGlide.vel = 0; return;
+    }
+    zoomGlide.raf = requestAnimationFrame(step);
+  }
+  zoomGlide.raf = requestAnimationFrame(step);
+}
+
 function fitToContent(){
   var b = board();
   if(!b || !b.elements.length){
@@ -4291,10 +4335,13 @@ cv.addEventListener("pointermove", function(e){
       var pl2 = pointer({ clientX: pm2.x, clientY: pm2.y });
       touchGestureAt = Date.now();
       var rawZ = pinch.z0 * (pd / pinch.d0);
+      var zPrev = cam.zoom;
+      zoomGlideCancel();
       cam.zoom = clamp(rawZ, 0.08, 5);   /* 跟手，不做单次限幅 */
       cam.x = pinch.w0.x - pl2.x / cam.zoom;
       cam.y = pinch.w0.y - pl2.y / cam.zoom;
       syncZoom(); requestRender();
+      zoomGlideTrack(zPrev, cam.zoom, pl2.x, pl2.y);
       return;
     }
   }
@@ -4713,9 +4760,12 @@ cv.addEventListener("wheel", function(e){
   e.preventDefault();
   var sp = pointer(e);
   if(e.ctrlKey || e.metaKey){
-    /* 按 delta 连续换算，滚多少放大多少，不做单次封顶 */
-    var want = cam.zoom * Math.pow(1.0015, -e.deltaY);
+    /* 手势期间实时跟手，不做单次封顶；停手后再补一段很短的缓停 */
+    var z0 = cam.zoom;
+    var want = z0 * Math.pow(1.0026, -e.deltaY);
+    zoomGlideCancel();
     zoomTo(sp.x, sp.y, want);
+    zoomGlideTrack(z0, cam.zoom, sp.x, sp.y);
   } else {
     if(e.shiftKey){
       cam.x += e.deltaY / cam.zoom;
@@ -6350,7 +6400,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-50";
+var APP_VERSION = "2026.11.08-51";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
