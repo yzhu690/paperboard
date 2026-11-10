@@ -6350,7 +6350,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-48";
+var APP_VERSION = "2026.11.08-49";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -6361,16 +6361,62 @@ function showUpdateChip(){
   b.addEventListener("click", function(){ flushThenReload(); });
   document.body.appendChild(b);
 }
+/* 线上版本探测：不依赖单一 GitHub 域名，多源并行，谁先回用谁 */
+function fetchJSON(url, ms){
+  return new Promise(function(resolve, reject){
+    var timer = setTimeout(function(){ reject(new Error("timeout")); }, ms || 5000);
+    fetch(url, { cache: "no-store" })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        clearTimeout(timer);
+        if(d && d.version) resolve(d); else reject(new Error("empty"));
+      })
+      .catch(function(err){ clearTimeout(timer); reject(err); });
+  });
+}
+/* 同源兜底：直接抓当前页面 HTML 里的 APP_VERSION，托管环境下也一定可用 */
+function probeSelf(){
+  return new Promise(function(resolve, reject){
+    var timer = setTimeout(function(){ reject(new Error("timeout")); }, 3500);
+    var self = location.href.split("#")[0].split("?")[0];
+    fetch(self + "?t=" + Date.now(), { cache: "no-store" })
+      .then(function(r){ return r.ok ? r.text() : null; })
+      .then(function(txt){
+        clearTimeout(timer);
+        if(!txt) return reject(new Error("empty"));
+        var m = /APP_VERSION\s*=\s*"([0-9][0-9.\-]*)"/.exec(txt);
+        if(m) resolve({ version: m[1] }); else reject(new Error("no-version"));
+      })
+      .catch(function(err){ clearTimeout(timer); reject(err); });
+  });
+}
+function probeVersion(){
+  var stamp = "?t=" + Date.now();
+  var urls = [
+    "https://cdn.jsdelivr.net/gh/yzhu690/paperboard@main/version.json" + stamp,
+    "https://yzhu690.github.io/paperboard/version.json" + stamp,
+    "version.json" + stamp
+  ];
+  var tasks = urls.map(function(u){ return fetchJSON(u, 4500); });
+  tasks.push(probeSelf());
+  if(typeof Promise.any !== "function"){
+    return new Promise(function(resolve){
+      var i = 0;
+      (function next(){
+        if(i >= tasks.length) return resolve(null);
+        tasks[i++].then(function(d){ resolve(d); }, next);
+      })();
+    });
+  }
+  return Promise.any(tasks).catch(function(){ return null; });
+}
 function checkUpdate(){
   try{
     if(location.protocol === "file:") return;
-    fetch("version.json?t=" + Date.now(), { cache:"no-store" })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if(!d || !d.version) return;
-        if(String(d.version) !== APP_VERSION) showUpdateChip();
-      })
-      .catch(function(){});
+    probeVersion().then(function(d){
+      if(!d || !d.version) return;
+      if(String(d.version) !== APP_VERSION) showUpdateChip();
+    });
   }catch(err){}
 }
 function flushDoc(done){
@@ -7118,6 +7164,7 @@ var I18N_EN = {
   "正在检查…": "Checking…",
   "发现新版本，正在更新…": "New version found, updating…",
   "暂时拿不到版本信息，检查一下网络": "Cannot reach the version file — check your connection",
+  "暂时连不上版本服务器（当前页面就是最新内容，也能照常使用）": "Version server unreachable for now — this page is already up to date and works as usual",
   "检查失败，检查一下网络再试": "Check failed — try again",
   "纸 面": "Paperboard",
   "起点": "Start",
@@ -8056,10 +8103,9 @@ function boot(){
     checkBtn.disabled = true;
     var old = checkBtn.textContent;
     checkBtn.textContent = "正在检查…";
-    fetch("version.json?t=" + Date.now(), { cache:"no-store" })
-      .then(function(r){ return r.ok ? r.json() : null; })
+    probeVersion()
       .then(function(d){
-        if(!d || !d.version){ toast("暂时拿不到版本信息，检查一下网络"); return; }
+        if(!d || !d.version){ toast("暂时连不上版本服务器（当前页面就是最新内容，也能照常使用）"); return; }
         if(String(d.version) === APP_VERSION){ toast("已经是最新版本"); return; }
         toast("发现新版本，正在更新…");
         var u = location.pathname + "?v=" + Date.now();
