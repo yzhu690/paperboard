@@ -2459,28 +2459,36 @@ function zoomGlideTrack(z0, z1, sx, sy){
   var dt = zoomGlide.at ? Math.max(8, now - zoomGlide.at) : 16;
   var v = Math.log(z1 / z0) / (dt / 1000);          /* 每秒的缩放对数速度 */
   zoomGlide.vel = zoomGlide.vel ? (zoomGlide.vel * 0.55 + v * 0.45) : v;
-  zoomGlide.vel = Math.max(-3.6, Math.min(3.6, zoomGlide.vel * 0.45));
+  zoomGlide.vel = Math.max(-3.6, Math.min(3.6, zoomGlide.vel));
   zoomGlide.sx = sx; zoomGlide.sy = sy; zoomGlide.at = now;
   clearTimeout(zoomGlide.timer);
   zoomGlide.timer = setTimeout(zoomGlideRun, 90);     /* 手势停 90ms 后开始缓停 */
 }
+/* 松手后不是「减速停住」，而是欠阻尼弹簧：先顺着惯性冲过头一点，再弹回来收住，
+   像果冻被拨了一下（Q 弹）。最终精确回到松手时的缩放值，不会改变大小。 */
 function zoomGlideRun(){
   zoomGlide.timer = 0;
-  if(zoomGlide.raf || Math.abs(zoomGlide.vel) < 0.2) return;
-  var dir = zoomGlide.vel > 0 ? 1 : -1;
-  var anchor = cam.zoom;
-  var limit = anchor * (1 + dir * 0.10);             /* 缓停最多再走 10%，不喧宾夺主 */
+  if(zoomGlide.raf) return;
+  var v0 = Math.max(-3.2, Math.min(3.2, zoomGlide.vel));
+  if(Math.abs(v0) < 0.35) return;
+  var target = cam.zoom;           /* 目标就是松手这一刻的大小 */
+  var val = cam.zoom;              /* 位置 */
+  var vel = v0;                    /* 惯性速度（ln 单位/秒） */
+  var K = 81, C = 7.6;             /* 刚度与阻尼：ζ≈0.42，弹一下就收 */
   var acc = 0, last = 0;
+  var overMax = 0.12;              /* 过冲上限，避免晃太狠 */
   function step(t){
     if(!last) last = t;
-    var dt = Math.min(0.05, (t - last) / 1000);
+    var dt = Math.min(0.034, (t - last) / 1000);
     last = t; acc += dt;
-    var v = zoomGlide.vel * Math.exp(-dt / 0.26);    /* 指数衰减，尾部很轻 */
-    zoomGlide.vel = v;
-    var next = cam.zoom * Math.exp(v * dt);
-    if((dir > 0 && next > limit) || (dir < 0 && next < limit)) next = limit;
-    zoomTo(zoomGlide.sx, zoomGlide.sy, next);
-    if(Math.abs(v) < 0.04 || acc > 0.62){
+    var a = -K * Math.log(val / target) - C * vel;
+    vel += a * dt;
+    val *= Math.exp(vel * dt);
+    if(val / target > 1 + overMax) val = target * (1 + overMax);
+    if(val / target < 1 - overMax) val = target * (1 - overMax);
+    zoomTo(zoomGlide.sx, zoomGlide.sy, val);
+    if((Math.abs(val / target - 1) < 0.0025 && Math.abs(vel) < 0.06) || acc > 1.15){
+      zoomTo(zoomGlide.sx, zoomGlide.sy, target);
       zoomGlide.raf = 0; zoomGlide.vel = 0; return;
     }
     zoomGlide.raf = requestAnimationFrame(step);
@@ -6400,7 +6408,7 @@ function cropRectFrac(){
 })();
 
 /* ---------------- 版本与更新提示 ---------------- */
-var APP_VERSION = "2026.11.08-51";
+var APP_VERSION = "2026.11.08-52";
 function showUpdateChip(){
   if(document.getElementById("updateChip")) return;
   var b = document.createElement("button");
@@ -7670,12 +7678,42 @@ function cloudSchedulePush(){
   CLOUD.pushTimer = setTimeout(function(){ cloudPush(true); }, 4000);
 }
 
+/* 登录成功后对齐一次：云端空就把本机推上去；本机是出厂内容就拿云端；
+   两边都有内容时按更新时间判断，云端明显更新才提示覆盖，避免误删本机 */
+async function cloudAlignAfterLogin(){
+  try{
+    var row = await cloudPull(true);
+    var rBoards = row && row.payload && Array.isArray(row.payload.boards) ? row.payload.boards : null;
+    if(!rBoards || !rBoards.length){
+      await cloudPush(true);
+      cloudPaint("已上传 HH:MM");
+      return;
+    }
+    if(DEFAULT_DOC){
+      await cloudAdopt(false);
+      return;
+    }
+    var rAt = (row.payload && row.payload.updatedAt) || Date.parse(row.updated_at || "") || 0;
+    var lAt = state.boards.reduce(function(m, b0){ return Math.max(m, b0.updatedAt || 0); }, 0);
+    if(rAt > lAt + 60000){
+      var go = await askConfirm("云端有更新的内容",
+        "云端最后更新于 " + new Date(rAt).toLocaleString() + "，本机比它旧。用云端覆盖本机吗？",
+        "用云端");
+      if(go) await cloudAdopt(false); else await cloudPush(true);
+      return;
+    }
+    await cloudPush(true);
+    cloudPaint("已上传 HH:MM");
+  }catch(err){}
+}
+
 function cloudRestoreSession(done){
   if(!CLOUD.session){ done(false, "none"); return; }
   if(!cloudExpired()){
     CLOUD.retryCount = 0;
     cloudPaint();
     cloudStartPolling();
+    cloudAlignAfterLogin();
     done(true, "fresh");
     return;
   }
@@ -7683,10 +7721,8 @@ function cloudRestoreSession(done){
     if(ok){
       cloudPaint();
       cloudStartPolling();
-      cloudAdopt(false).then(function(a){
-        if(!a) cloudPush(true);
-        done(true, "refreshed");
-      }).catch(function(){ done(true, "refreshed"); });
+      cloudAlignAfterLogin().then(function(){ done(true, "refreshed"); },
+                                  function(){ done(true, "refreshed"); });
     } else {
       /* 网络抖动 / refresh 被其它标签页消耗：稍后自动再试，不要求用户重新登录 */
       var tries = (CLOUD.retryCount || 0) + 1;
@@ -7838,9 +7874,7 @@ function afterCloudLogin(){
   cloudStartPolling();
   cloudPaint();
   toast("云端登录成功");
-  cloudAdopt(false).then(function(a){
-    if(!a) cloudPush(true);
-  });
+  cloudAlignAfterLogin();
 }
 
 function wireCloudLogin(){
